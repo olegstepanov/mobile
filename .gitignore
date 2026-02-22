@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+
+# build123d (vendored dependency — not our source)
+build123d/
+
+# Blender
+blender/
+blender_python_reference_*/
+
+# Generated output
+output/
+
+# macOS resource forks
+._*
+.DS_Store
+
+# Claude Code local settings
+.claude/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# STL / 3MF (generated artifacts)
+*.stl
+*.3mf
+
+# Type checker / linter cache
+.mypy_cache/
+.ruff_cache/
