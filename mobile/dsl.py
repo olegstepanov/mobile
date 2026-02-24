@@ -5,7 +5,7 @@ Implements the mobile DSL per SPEC.md: Svg, Txt, Space, Leaf, Node, Arc, Level, 
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 
@@ -254,9 +254,32 @@ class Mobile:
             )
 
     def build(self, output_dir: str | Path) -> None:
-        """Resolve physics and generate STL files."""
-        from mobile.resolve import resolve
+        """Resolve physics and generate STL files.
+
+        Three-pass pipeline:
+        1. Resolve tree with midpoint pivots and weights from build123d.
+        2. Generate low-res intermediate STLs (no holes) → COM solver finds pivots.
+        3. Generate final hi-res STLs with correct holes at solved pivot positions.
+        """
+        import tempfile
+
         from mobile.generate import generate
+        from mobile.resolve import resolve
+        from mobile.simulate import simulate_mobile
 
         tree = resolve(self)
+
+        # Pass 2: generate intermediate STLs for COM-based pivot solver
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            generate(
+                tree, self.config, tmp_path,
+                skip_holes=True,
+                stl_tolerance_override=self.config.sim_stl_tolerance,
+                stl_angular_tolerance_override=self.config.sim_stl_angular_tolerance,
+            )
+            # Compute center of mass from STL meshes, find real pivot positions
+            tree = simulate_mobile(tree, self.config, tmp_path)
+
+        # Pass 3: generate final STLs with correct holes
         generate(tree, self.config, Path(output_dir))

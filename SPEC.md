@@ -11,14 +11,19 @@ Python 3.13+. Haskell-inspired operator conventions. build123d for CAD.
 ## Pipeline overview
 
 ```
-DSL  →  ResolvedTree  →  STL files
+DSL → resolve(midpoint pivots, weights from build123d)        # Pass 1
+    → generate(low-res intermediate STL, NO holes)            # Pass 2
+    → Blender: load full system, binary search bottom-up      # Pass 3
+    → generate(final hi-res STL with correct holes)           # Pass 4
 ```
 
 | Stage | Module | Purpose |
 |---|---|---|
 | DSL | `mobile.dsl` | User-facing types and operator overloading |
-| Resolve | `mobile.resolve` | Level-to-tree linking, area/weight computation, pivot solving |
+| Resolve | `mobile.resolve` | Level-to-tree linking, area/weight computation, midpoint pivots |
 | Generate | `mobile.generate` | build123d geometry creation, boolean ops, STL export |
+| Simulate | `mobile.simulate` | Blender rigid body simulation orchestrator |
+| Blender script | `mobile.blender_pivot` | Headless Blender script for pivot solving |
 | Arc math | `mobile.arc_math` | Pure math for sagitta arcs and pivot solving |
 | Config | `mobile.config` | Global physical/rendering defaults |
 | Errors | `mobile.errors` | Exception hierarchy |
@@ -372,12 +377,18 @@ Level 2:  _(U, R)  _(I, r)  _(i, A)  → all leaves, 3 nodes fill 3 holes
 
 ### `Mobile.build(output_dir)`
 
-Convenience method that runs the full pipeline:
+Convenience method that runs the full three-pass pipeline:
 
 ```python
 def build(self, output_dir: str | Path) -> None:
-    tree = resolve(self)
-    generate(tree, self.config, Path(output_dir))
+    tree = resolve(self)                           # Pass 1: midpoint pivots + weights
+    with tempfile.TemporaryDirectory() as tmp:
+        generate(tree, config, tmp,                # Pass 2: low-res STLs, no holes
+                 skip_holes=True,
+                 stl_tolerance_override=config.sim_stl_tolerance,
+                 stl_angular_tolerance_override=config.sim_stl_angular_tolerance)
+        tree = simulate_mobile(tree, config, tmp)  # Pass 3: Blender finds pivots
+    generate(tree, config, output_dir)             # Pass 4: final hi-res STLs
 ```
 
 ---
@@ -443,23 +454,15 @@ class ResolvedBranch:
 ResolvedTree = ResolvedLeaf | ResolvedBranch
 ```
 
-### Pivot solving
+### Pivot assignment (midpoint)
 
-The pivot position is solved so that the arc's equilibrium tilt matches
-a target angle determined by the angle strategy.
+During resolution, every branch gets a midpoint pivot (`pivot_mm = arc_w / 2`).
+The actual pivot position is determined later by Blender rigid body simulation
+(see §10a below). The resolved tree's `angle_eq` and `angle` are set to `0.0`
+as placeholders until the simulation runs.
 
-**Equilibrium angle formula:**
-
-```
-base_mm   = arc.w × weight_right / (weight_left + weight_right)
-pivot_y   = Y coordinate of pivot point on the sagitta arc (at x=0)
-angle_eq  = atan2(pivot_mm − base_mm, pivot_y)
-```
-
-The pivot sits *on the arc curve* (not on the chord), providing a vertical
-offset that makes the equilibrium angle statically determined.
-
-**Target angle by strategy** (configured on `MobileConfig.angle_strategy`):
+**Target angle by strategy** (configured on `MobileConfig.angle_strategy`,
+used by the simulation orchestrator):
 
 | Strategy | Target angle |
 |---|---|
@@ -467,22 +470,55 @@ offset that makes the equilibrium angle statically determined.
 | `"hint"` | `angle_hint` (user's rotation value) |
 | `"blend"` (default) | `(1 − blend_ratio) × angle_hint` |
 
-The solver finds `pivot_mm` via bisection such that `equilibrium_angle(pivot_mm) = target_angle`.
-
-**Constraints:**
-- `pivot_mm` is clamped to `[hole_tip_inset, arc.w − hole_tip_inset]`
-- If the target angle is not achievable within constraints, raises
-  `MobilePivotError` with the achievable angle range
-
-**Final angle:** `angle = angle_eq` (the actual equilibrium angle at the
-solved pivot position, which should match the target when solvable).
-
 ### Scale propagation
 
 `cumulative_scale` flows top-down:
 - Root starts at `1.0`
 - Each `_IntermediateNode` multiplies by its level's `scale`
 - Each `Leaf` multiplies by its own `scale`
+
+---
+
+## 10a. Blender rigid body simulation (`mobile.simulate`, `mobile.blender_pivot`)
+
+The analytical pivot solver (point-mass model) has been replaced by a Blender
+rigid body physics simulation that accounts for the real mass distribution of
+each arc bar and its fused leaf bodies.
+
+### Orchestrator (`mobile.simulate`)
+
+`simulate_mobile(tree, config, stl_dir)`:
+
+1. Walks the resolved tree to build a JSON description containing:
+   - Per-branch: STL path, arc dimensions, target angle, pivot bounds
+   - Tree connectivity (which child hangs from which parent endpoint)
+   - Level ordering (bottom-up, deepest first)
+   - Density and all simulation parameters from config
+2. Computes `target_angle_deg` per branch using `config.angle_strategy`
+3. Writes JSON to a tempfile
+4. Calls `blender --background --python blender_pivot.py -- <json_path>`
+5. Parses `BLENDER_RESULT:` line from stdout
+6. Patches the tree with new `pivot_mm`, `pivot`, `angle_eq`, `angle`
+
+Raises `MobileSimulationError` if Blender is missing, exits non-zero,
+any branch fails to converge, or output is malformed.
+
+### Blender script (`mobile.blender_pivot`)
+
+Standalone script (no `mobile.*` imports). Sets up:
+
+1. Rigid body world with configured substeps, solver iterations, damping
+2. Gravity in -Y direction (9810 mm/s²)
+3. Each arc imported as a mesh object with `ACTIVE` rigid body, `MESH`
+   collision shape, mass computed from actual mesh volume
+4. HINGE constraint (Z axis) at each arc's pivot position
+5. POINT constraints connecting parent endpoints to child arcs
+
+**Bottom-up binary search:** for each level (deepest first), for each arc:
+- Binary search `pivot_mm` in `[min_p, max_p]`
+- Each trial: reposition hinge, reset physics, run to settle frame,
+  read Z rotation, compare to target angle
+- After convergence, lock the arc (kinematic) before moving to next level
 
 ---
 
@@ -533,12 +569,13 @@ For each branch:
    - Right: `(arc_w - pivot_mm, arc_y(arc_w - pivot_mm), 0)`
 3. Fuse positive leaf bodies at their respective endpoints.
 4. Apply all negative cutters at their respective endpoints.
-5. Cut **pivot hole**: vertical cylinder at `(0, arc_y(0), 0)`, aligned
-   with Y axis (gravity direction), radius = `hole_diameter / 2`.
-6. Cut **endpoint holes** only for sub-arc children (not leaf children):
-   radial cylinders near each endpoint, pointing toward the arc's center
-   of curvature, inset from the tip by `hole_tip_inset` mm.
-7. Export as STL.
+5. Cut **pivot hole** (skipped when `skip_holes=True`): vertical cylinder
+   at `(0, arc_y(0), 0)`, aligned with Y axis, radius = `hole_diameter / 2`.
+6. Cut **endpoint holes** (skipped when `skip_holes=True`) only for sub-arc
+   children: radial cylinders near each endpoint, pointing toward the arc's
+   center of curvature, inset from the tip by `hole_tip_inset` mm.
+7. Export as STL (using `stl_tolerance_override` / `stl_angular_tolerance_override`
+   if provided, otherwise `config.stl_tolerance` / `config.stl_angular_tolerance`).
 
 ### Output structure
 
@@ -593,6 +630,18 @@ class MobileConfig:
     # STL export quality
     stl_tolerance:         float = 1e-4     # mm, linear deflection for mesh
     stl_angular_tolerance: float = 0.01     # radians (~0.6°), angular deflection
+
+    # Blender simulation
+    blender_path:              str   = "blender"
+    sim_settle_frames:         int   = 300
+    sim_substeps_per_frame:    int   = 20
+    sim_solver_iterations:     int   = 60
+    sim_angular_damping:       float = 0.95
+    sim_linear_damping:        float = 0.95
+    sim_angle_tolerance_deg:   float = 0.1
+    sim_max_bisect_iterations: int   = 20
+    sim_stl_tolerance:         float = 0.05   # low-res for intermediate STLs
+    sim_stl_angular_tolerance: float = 0.5    # radians, low-res
 ```
 
 ---
@@ -606,6 +655,7 @@ class MobileConfig:
 | `MobileArcError` | Node without arc and no level default |
 | `MobileWeightError` | Negative net weight (too many cutouts) |
 | `MobilePivotError` | Requested angle requires impossible pivot position |
+| `MobileSimulationError` | Blender rigid body simulation failed |
 | `MobileEmptyError` | Empty mobile (no levels) |
 
 Hierarchy: all inherit from `MobileError` which inherits from `Exception`.
@@ -710,4 +760,7 @@ output/
 
 - **build123d**: CAD kernel for geometry creation, boolean operations,
   SVG import, text-to-outline, sweep, extrude, STL export
+- **Blender** (external, headless): rigid body physics simulation for pivot
+  solving. Must be available on `PATH` or configured via `config.blender_path`.
+  Invoked as a subprocess — not a Python dependency.
 - **Python 3.13+**: for `type X = A | B` union syntax and dataclass features

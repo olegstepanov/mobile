@@ -7,6 +7,11 @@
 - **Linter & formatter**: `ruff` — run via `make lint` and `make format`.
 - **Build targets**: maintain a `Makefile` with `test`, `typecheck`, `lint`, and `format` targets.
 
+## Architecture
+
+- **`mobile/blender_pivot.py`** is a standalone script run inside Blender's embedded Python. It must **never** import from `mobile.*` — Blender has its own Python interpreter without access to the project's venv. All shared math (e.g. `arc_y_at_x`) is reimplemented inline.
+- **Blender** is an external runtime dependency (not a pip package). It's invoked as a subprocess via `blender --background --python`.
+
 ## Code Style
 
 Build with Python 3.13 in mind. Channel Guido.

@@ -15,3 +15,8 @@ include = ["mobile*"]
 
 [tool.uv.sources]
 build123d = { path = "build123d", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

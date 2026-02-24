@@ -260,6 +260,10 @@ def _generate_branch(
     output_dir: Path,
     path_prefix: str,
     depth: int,
+    *,
+    skip_holes: bool = False,
+    stl_tolerance_override: float | None = None,
+    stl_angular_tolerance_override: float | None = None,
 ) -> None:
     """Generate a single fused STL for this branch (arc + direct leaf children)."""
 
@@ -274,6 +278,12 @@ def _generate_branch(
 
     cutters: list[tuple[float, float, Part]] = []  # (ep_x, ep_y, cutter)
 
+    # Counter-rotate leaves so they appear upright when the arc tilts.
+    # branch.angle uses CW-positive convention; build123d Rot Z uses
+    # CCW-positive (standard math).  The physical tilt is Rot(0,0,-angle),
+    # so we pre-apply the inverse: Rot(0,0,+angle).
+    counter_rot = Rot(0, 0, branch.angle)
+
     # 3. Fuse positive leaf bodies at endpoints
     #    _make_leaf_parts returns bodies centred at origin (XY and Z),
     #    so Pos(ep_x, ep_y, 0) places the leaf centre right at the
@@ -281,61 +291,88 @@ def _generate_branch(
     if isinstance(branch.left, ResolvedLeaf):
         pos_solid, neg_list = _make_leaf_parts(branch.left, config)
         if pos_solid is not None:
-            piece = _fuse(piece, Pos(left_x, left_y, 0) * pos_solid)
+            piece = _fuse(piece, Pos(left_x, left_y, 0) * counter_rot * pos_solid)
         for c in neg_list:
-            cutters.append((left_x, left_y, c))
+            cutters.append((left_x, left_y, counter_rot * c))
 
     if isinstance(branch.right, ResolvedLeaf):
         pos_solid, neg_list = _make_leaf_parts(branch.right, config)
         if pos_solid is not None:
-            piece = _fuse(piece, Pos(right_x, right_y, 0) * pos_solid)
+            piece = _fuse(piece, Pos(right_x, right_y, 0) * counter_rot * pos_solid)
         for c in neg_list:
-            cutters.append((right_x, right_y, c))
+            cutters.append((right_x, right_y, counter_rot * c))
 
     # 4. Apply ALL negative cutouts to the whole fused piece
-    #    Cutters are already centred at the same origin as the positive body,
-    #    so they use the same endpoint translation.
+    #    Cutters are already counter-rotated, so just translate to endpoint.
     for ep_x, ep_y, cutter in cutters:
         piece = _cut(piece, Pos(ep_x, ep_y, 0) * cutter)
 
-    # 5. Cut pivot hole (always, vertical)
-    piece = _cut_pivot_hole(piece, branch, config)
+    if not skip_holes:
+        # 5. Cut pivot hole (always, vertical)
+        piece = _cut_pivot_hole(piece, branch, config)
 
-    # 6. Cut endpoint holes only where child is a sub-arc (hole in DSL)
-    if isinstance(branch.left, ResolvedBranch):
-        piece = _cut_endpoint_hole(piece, branch, "left", config)
-    if isinstance(branch.right, ResolvedBranch):
-        piece = _cut_endpoint_hole(piece, branch, "right", config)
+        # 6. Cut endpoint holes only where child is a sub-arc (hole in DSL)
+        if isinstance(branch.left, ResolvedBranch):
+            piece = _cut_endpoint_hole(piece, branch, "left", config)
+        if isinstance(branch.right, ResolvedBranch):
+            piece = _cut_endpoint_hole(piece, branch, "right", config)
 
     # 7. Export
     if not path_prefix:
         part_id = f"arc-{depth}"
     else:
         part_id = f"arc-{path_prefix}"
+
+    tol = stl_tolerance_override if stl_tolerance_override is not None else config.stl_tolerance
+    ang_tol = stl_angular_tolerance_override if stl_angular_tolerance_override is not None else config.stl_angular_tolerance
+
     export_stl(
         piece,
         str(output_dir / f"{part_id}.stl"),
-        tolerance=config.stl_tolerance,
-        angular_tolerance=config.stl_angular_tolerance,
+        tolerance=tol,
+        angular_tolerance=ang_tol,
     )
 
     # 8. Recurse into sub-arc children
     if isinstance(branch.left, ResolvedBranch):
-        _generate_branch(branch.left, config, output_dir, path_prefix + "L", depth + 1)
+        _generate_branch(
+            branch.left, config, output_dir, path_prefix + "L", depth + 1,
+            skip_holes=skip_holes,
+            stl_tolerance_override=stl_tolerance_override,
+            stl_angular_tolerance_override=stl_angular_tolerance_override,
+        )
     if isinstance(branch.right, ResolvedBranch):
-        _generate_branch(branch.right, config, output_dir, path_prefix + "R", depth + 1)
+        _generate_branch(
+            branch.right, config, output_dir, path_prefix + "R", depth + 1,
+            skip_holes=skip_holes,
+            stl_tolerance_override=stl_tolerance_override,
+            stl_angular_tolerance_override=stl_angular_tolerance_override,
+        )
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
-def generate(tree: ResolvedTree, config: MobileConfig, output_dir: Path) -> None:
+def generate(
+    tree: ResolvedTree,
+    config: MobileConfig,
+    output_dir: Path,
+    *,
+    skip_holes: bool = False,
+    stl_tolerance_override: float | None = None,
+    stl_angular_tolerance_override: float | None = None,
+) -> None:
     """Generate STL files from a resolved tree."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if isinstance(tree, ResolvedBranch):
-        _generate_branch(tree, config, output_dir, "", 0)
+        _generate_branch(
+            tree, config, output_dir, "", 0,
+            skip_holes=skip_holes,
+            stl_tolerance_override=stl_tolerance_override,
+            stl_angular_tolerance_override=stl_angular_tolerance_override,
+        )
     else:
         # Single leaf — shouldn't normally happen but handle gracefully
         raise ValueError("Cannot generate STL from a single leaf — need at least one arc")

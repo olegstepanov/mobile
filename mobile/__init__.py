@@ -8,10 +8,12 @@ from mobile.errors import (
     MobileError,
     MobilePivotError,
     MobileShapeError,
+    MobileSimulationError,
     MobileWeightError,
 )
 from mobile.generate import generate
 from mobile.resolve import resolve
+from mobile.simulate import simulate_mobile
 
 __all__ = [
     "Arc",
@@ -22,8 +24,9 @@ __all__ = [
     "MobileConfig",
     "MobileEmptyError",
     "MobileError",
-    "MobileShapeError",
     "MobilePivotError",
+    "MobileShapeError",
+    "MobileSimulationError",
     "MobileWeightError",
     "Node",
     "Space",
@@ -32,4 +35,5 @@ __all__ = [
     "_",
     "generate",
     "resolve",
+    "simulate_mobile",
 ]

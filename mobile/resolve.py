@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING
 from build123d import Face, import_svg, Compound, FontStyle, TextAlign
 
 from mobile.dsl import Arc, Leaf, Svg, Txt
-from mobile.arc_math import equilibrium_angle_deg, solve_pivot_mm_for_angle
-from mobile.errors import MobilePivotError, MobileWeightError
+from mobile.errors import MobileWeightError
 
 if TYPE_CHECKING:
     from mobile.config import MobileConfig
@@ -185,37 +184,11 @@ def _resolve_node(
     total_weight = left_resolved.weight + right_resolved.weight
     angle_hint = node.rotation
 
-    # Interpret the hint as the *desired* equilibrium rotation about the pivot.
-    # We solve for pivot position that achieves the target angle.
-    if config.angle_strategy == "equilibrium":
-        target_angle = 0.0
-    elif config.angle_strategy == "hint":
-        target_angle = angle_hint
-    else:  # "blend" (weight toward equilibrium == smaller angle magnitude)
-        target_angle = (1.0 - config.blend_ratio) * angle_hint
-
-    try:
-        pivot_mm = solve_pivot_mm_for_angle(
-            arc_w=node.arc.w,
-            arc_h=node.arc.h,
-            weight_left=left_resolved.weight,
-            weight_right=right_resolved.weight,
-            target_angle_deg=target_angle,
-            min_tip_span_mm=config.hole_tip_inset,
-        )
-    except ValueError as e:
-        raise MobilePivotError(str(e)) from e
-
-    pivot = pivot_mm / node.arc.w
-
-    angle_eq = equilibrium_angle_deg(
-        node.arc.w,
-        node.arc.h,
-        pivot_mm,
-        left_resolved.weight,
-        right_resolved.weight,
-    )
-    angle = angle_eq
+    # Midpoint pivot — Blender simulation will find the real pivot later.
+    pivot_mm = node.arc.w / 2.0
+    pivot = 0.5
+    angle_eq = 0.0
+    angle = 0.0
 
     return ResolvedBranch(
         left=left_resolved,

@@ -21,5 +21,9 @@ class MobilePivotError(MobileError):
     """Requested angle implies an impossible pivot location."""
 
 
+class MobileSimulationError(MobileError):
+    """COM-based pivot solver failed (missing STL or convergence failure)."""
+
+
 class MobileEmptyError(MobileError):
     """Empty mobile (no levels)."""

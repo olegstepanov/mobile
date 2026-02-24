@@ -32,7 +32,7 @@ mobile = Mobile([
 
 # ── build ─────────────────────────────────────────────────────
 if __name__ == "__main__":
-    output = here.parent / "output"
+    output = here.parent / "output" / Path(__file__).stem
     mobile.build(output)
     print(f"Built to {output}/")
     for f in sorted(output.iterdir()):
