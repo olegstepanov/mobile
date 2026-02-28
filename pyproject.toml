@@ -3,18 +3,21 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mobile"
-version = "0.1.0"
+name = "mbl"
+version = "0.2.0"
 requires-python = ">= 3.13"
 dependencies = [
     "build123d",
 ]
 
-[tool.setuptools.packages.find]
-include = ["mobile*"]
+[project.scripts]
+mbl = "mbl.cli:main"
 
-[tool.uv.sources]
-build123d = { path = "build123d", editable = true }
+[tool.setuptools.packages.find]
+include = ["mobile*", "mbl*"]
+
+[tool.setuptools.package-data]
+mobile = ["assets/*.svg", "assets/*.ttf"]
 
 [dependency-groups]
 dev = [

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.13"
 
 [[package]]
@@ -22,10 +22,11 @@ wheels = [
 
 [[package]]
 name = "build123d"
-source = { editable = "build123d" }
+version = "0.10.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anytree" },
-    { name = "cadquery-ocp-novtk" },
+    { name = "cadquery-ocp" },
     { name = "ezdxf" },
     { name = "ipython" },
     { name = "lib3mf" },
@@ -39,64 +40,23 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "webcolors" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "anytree", specifier = ">=2.8.0,<3" },
-    { name = "black", marker = "extra == 'development'" },
-    { name = "build123d", extras = ["development"], marker = "extra == 'all'" },
-    { name = "build123d", extras = ["docs"], marker = "extra == 'all'" },
-    { name = "build123d", extras = ["ocp-vscode"], marker = "extra == 'all'" },
-    { name = "build123d", extras = ["stubs"], marker = "extra == 'all'" },
-    { name = "cadquery-ocp-novtk", specifier = ">=7.9,<8.0" },
-    { name = "cadquery-ocp-stubs", marker = "extra == 'stubs'", specifier = ">=7.9,<8.0" },
-    { name = "ezdxf", specifier = ">=1.1.0,<2" },
-    { name = "ipython", specifier = ">=8.0.0,<10" },
-    { name = "lib3mf", specifier = ">=2.4.1" },
-    { name = "mypy", marker = "extra == 'development'" },
-    { name = "numpy", specifier = ">=2,<3" },
-    { name = "ocp-gordon", specifier = ">=0.2,<0.3" },
-    { name = "ocp-vscode", marker = "extra == 'ocp-vscode'" },
-    { name = "ocpsvg", specifier = ">=0.6,<0.7" },
-    { name = "pylint", marker = "extra == 'development'" },
-    { name = "pytest", marker = "extra == 'development'", specifier = "==8.4.2" },
-    { name = "pytest-benchmark", marker = "extra == 'development'" },
-    { name = "pytest-cov", marker = "extra == 'development'" },
-    { name = "pytest-xdist", marker = "extra == 'development'" },
-    { name = "scipy" },
-    { name = "sphinx", marker = "extra == 'docs'", specifier = "==8.1.3" },
-    { name = "sphinx-autodoc-typehints", marker = "extra == 'docs'" },
-    { name = "sphinx-copybutton", marker = "extra == 'docs'" },
-    { name = "sphinx-design", marker = "extra == 'docs'" },
-    { name = "sphinx-hoverxref", marker = "extra == 'docs'" },
-    { name = "sphinx-rtd-theme", marker = "extra == 'docs'" },
-    { name = "svgpathtools", specifier = ">=1.5.1,<2" },
-    { name = "sympy" },
-    { name = "trianglesolver" },
-    { name = "typing-extensions", specifier = ">=4.6.0,<5" },
-    { name = "webcolors", specifier = "~=24.8.0" },
-    { name = "wheel", marker = "extra == 'development'" },
+sdist = { url = "https://files.pythonhosted.org/packages/7e/00/b56ebe1d2a31611dbfcc315d22ebb5403eddc60027d5f82acd493ebb5ac1/build123d-0.10.0.tar.gz", hash = "sha256:73ded38ddca8ebb95e7dd078ac3d7aacc8ca42fce8f1d176f1040e35fba4f608", size = 20011921, upload-time = "2025-11-05T22:04:37.054Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/5a/0fe9cc610a6d07eaaddd80629a49ea18ecf9acefb81c6788a854f0dea224/build123d-0.10.0-py3-none-any.whl", hash = "sha256:589f397b1dc7c85c9936aa7b2ee39946cc226a121e14a621b6749263aae5ed7d", size = 278755, upload-time = "2025-11-05T22:04:35.222Z" },
 ]
-provides-extras = ["ocp-vscode", "development", "stubs", "docs", "all"]
 
 [[package]]
-name = "cadquery-ocp-novtk"
-version = "7.9.3.0"
+name = "cadquery-ocp"
+version = "7.8.1.1.post1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cadquery-ocp-proxy" },
+    { name = "cadquery-vtk" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/fd/9119e55ea6e629de4fd75866f25289d6d1d1ae2c2d188df0631dff32b5f2/cadquery_ocp_novtk-7.9.3.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:9c17460a04daeb20ecbefd21813d2a3aada850000cd0c1cffad56a70aecf6846", size = 62277394, upload-time = "2026-01-03T19:02:53.335Z" },
-    { url = "https://files.pythonhosted.org/packages/11/81/82b9fe04519aba6838a5393ffbc380647a805fdf04877c4833e79e411ed7/cadquery_ocp_novtk-7.9.3.0-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:26a4a6159114baad55c9730f3a024483762b6435e9487209020375e72e2536cd", size = 67132454, upload-time = "2026-01-03T19:02:56.967Z" },
-    { url = "https://files.pythonhosted.org/packages/e0/9f/f016b9b0264994ce420d823b325367d84ecf4a3938c9c4924f76a501dd64/cadquery_ocp_novtk-7.9.3.0-cp313-cp313-manylinux_2_31_aarch64.whl", hash = "sha256:eb8a4aac97528206c521ee3060aaf1c9cc58d4b27b932260df828fd241f84c33", size = 61807060, upload-time = "2026-01-03T19:03:00.406Z" },
-    { url = "https://files.pythonhosted.org/packages/60/57/221c95e2d0f2096407ae1dcaa15bc2b5dacd7e85715a9b79cf9504319e36/cadquery_ocp_novtk-7.9.3.0-cp313-cp313-manylinux_2_31_x86_64.whl", hash = "sha256:ec4ddc1cdb44f3b287dda2ad6bbf6e2561359450cc27db164ca6b2e8d3898366", size = 67233189, upload-time = "2026-01-03T19:03:04.254Z" },
-    { url = "https://files.pythonhosted.org/packages/a6/ca/24a3df8e1bb872feb4f49748c2d19c94166d9b6c1103cb756f5cdc2afbf3/cadquery_ocp_novtk-7.9.3.0-cp313-cp313-win_amd64.whl", hash = "sha256:bb9371cee51f64e963c6bba07da3d9b38dbac4eb75643eea53933c322c9244da", size = 46225104, upload-time = "2026-01-03T19:03:07.583Z" },
-    { url = "https://files.pythonhosted.org/packages/7f/82/69acc7b3570cd9c759558c405374d65ce56b58c92cb874ba0ed03c93ef1c/cadquery_ocp_novtk-7.9.3.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:179dbb5ad5114537c1204960209ac5b60e70ec3900cc0ac8831722a9bef0dc7c", size = 62342067, upload-time = "2026-01-03T19:03:10.818Z" },
-    { url = "https://files.pythonhosted.org/packages/49/12/9e89bbfdb8941d64a9d264fb2f396dbc94be7e3b3fa0799905a4a04a00b5/cadquery_ocp_novtk-7.9.3.0-cp314-cp314-macosx_11_0_x86_64.whl", hash = "sha256:848f691b716a62294574b85da8b1213b129af0c563990f6e1144ea9006d34015", size = 67092754, upload-time = "2026-01-03T19:03:14.296Z" },
-    { url = "https://files.pythonhosted.org/packages/10/41/5510b62ede2179735e24b03b8f10653305cc200fa16d2deb80722a5a250b/cadquery_ocp_novtk-7.9.3.0-cp314-cp314-manylinux_2_31_aarch64.whl", hash = "sha256:c9532d1330ede8c9e9da02af33a07c7416cbe6a056a4212e1f832b23e604511b", size = 62035281, upload-time = "2026-01-03T19:03:18.387Z" },
-    { url = "https://files.pythonhosted.org/packages/66/ca/13919e7db687c7f6b53cab082ed24331c9b5fbc241495f6a5e50b92477f9/cadquery_ocp_novtk-7.9.3.0-cp314-cp314-manylinux_2_31_x86_64.whl", hash = "sha256:bad86c6ae53776a489f6de245fad53c571906bd4a52b9e0fec73a8fa8a42baf1", size = 67329095, upload-time = "2026-01-03T19:03:22.057Z" },
-    { url = "https://files.pythonhosted.org/packages/90/dd/c5cad9542dbee3d0dd2eacc6ad254cc52a210253af678a096b58363b141c/cadquery_ocp_novtk-7.9.3.0-cp314-cp314-win_amd64.whl", hash = "sha256:e68c9783ba0fbf239c47c77fed5a48b9f72c0a5e905bd6fd532df91d830f5cfa", size = 46365987, upload-time = "2026-01-03T19:03:25.155Z" },
+    { url = "https://files.pythonhosted.org/packages/23/1d/f2ef5da38774f3f1d2a55f01567e81190b15f765bbfc8e97d3bfbeff3fd9/cadquery_ocp-7.8.1.1.post1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:08fdc32b79e6f974cf692584be865985161e4fd8cbf854ed64c8c1530458fce3", size = 68589505, upload-time = "2025-01-29T14:34:53.501Z" },
+    { url = "https://files.pythonhosted.org/packages/54/e0/d2b4a5499af452400a49c85d98e83789acdb2b64826a95b634e9069feff6/cadquery_ocp-7.8.1.1.post1-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:fd5ffec5e27846fe4796db9cdc0748324e4d7c59da7c6c7d86a6eb38e823b3f5", size = 69525070, upload-time = "2025-01-29T14:35:02.585Z" },
+    { url = "https://files.pythonhosted.org/packages/65/7d/873c560967fc79e4c7c850bdca6418801610acd7f7041a40b71812827588/cadquery_ocp-7.8.1.1.post1-cp313-cp313-manylinux_2_31_x86_64.whl", hash = "sha256:081017e5387debe4bf31a9dc222c2513e26d1860ca990119bfe90a6970a77104", size = 70305329, upload-time = "2025-01-29T14:35:11.799Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/08/edb59c820f339f7fb35b20a4580839ed91488bffcd3c7ba341f8b971d91c/cadquery_ocp-7.8.1.1.post1-cp313-cp313-win_amd64.whl", hash = "sha256:22877143d06cb52bd7d48a591510f8e72c2fc5768bafebb99e5cf077798ee939", size = 51752390, upload-time = "2025-01-29T14:35:42.303Z" },
 ]
 
 [[package]]
@@ -105,6 +65,17 @@ version = "7.9.3.0"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/40/0da2adcb8afaf2b9e2f0319b9b45c4e949406fc549d8cbca8b86dc9136ce/cadquery_ocp_proxy-7.9.3.0-py3-none-any.whl", hash = "sha256:6563d74dcd23065f094982e514e7b44afebeda5c9dc1ea2f8a56b441561d45a2", size = 3260, upload-time = "2026-01-03T19:04:34.19Z" },
+]
+
+[[package]]
+name = "cadquery-vtk"
+version = "9.3.1"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/34/4d0329c459c1e4f332c1e71790c4584c0bff042cf74e589e81a9995cb2c3/cadquery_vtk-9.3.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:1b8692e99d0de5a2b449213f5cb71d930e45f59b00613e703075ba508b4eb7d8", size = 44862894, upload-time = "2025-01-13T17:35:13.43Z" },
+    { url = "https://files.pythonhosted.org/packages/59/2e/0512fe92a7fc83c9b28c27c22dfd335c53098339194077700cf752127bf1/cadquery_vtk-9.3.1-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:7f355eb7307570de667d336c6a8488e36b366a60100bcc9562bde35290746f2e", size = 48935051, upload-time = "2025-01-13T17:35:20.504Z" },
+    { url = "https://files.pythonhosted.org/packages/66/81/384b2486045ba217bcb1ed23aea9a7be956ac534d163ece8e8e08b35d903/cadquery_vtk-9.3.1-cp313-cp313-manylinux_2_31_x86_64.whl", hash = "sha256:c2f73ec3128896e2cd65449c6d7594516f038c75ca6b69d6efc271a6a88b0516", size = 63139533, upload-time = "2025-01-13T17:35:29.789Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/72/381b96f56ace942a9fe642c50853ec5d435c318f0440e44e6eaa94cf68f4/cadquery_vtk-9.3.1-cp313-cp313-win_amd64.whl", hash = "sha256:3fc11f517e78612a4f05a40b4d18402b8afc0cead7d504b90cf7baf180c5e720", size = 38770981, upload-time = "2025-01-13T17:35:38.397Z" },
 ]
 
 [[package]]
@@ -267,8 +238,8 @@ wheels = [
 ]
 
 [[package]]
-name = "mobile"
-version = "0.1.0"
+name = "mbl"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "build123d" },
@@ -280,7 +251,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "build123d", editable = "build123d" }]
+requires-dist = [{ name = "build123d" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=9.0.2" }]
@@ -360,15 +331,15 @@ wheels = [
 
 [[package]]
 name = "ocpsvg"
-version = "0.6.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cadquery-ocp-proxy" },
+    { name = "cadquery-ocp" },
     { name = "svgelements" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/89/48/f121f459dc6e184ca2ee99b8fba0a2f51b1ef710d829eafb43d9acd1100d/ocpsvg-0.6.0.tar.gz", hash = "sha256:f08da4347cc90ecd3565395e9bda5746d46ab8aafd6a2681bb03a9c321b54039", size = 54342, upload-time = "2026-01-08T12:31:35.206Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/e2/3ba2ad53395f91c72070cb3b8b033c5d9f9ba2ae6f61e869ef2a5f7f8ade/ocpsvg-0.5.0.tar.gz", hash = "sha256:5cd8dbec8bf590d373a82aaebeab241838185aab04ee2859f33b9d7956bbfba6", size = 54195, upload-time = "2025-02-21T15:54:12.333Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/d7/27d2c9d5a2645fdda9e502a2a1a1cb5d4c9d137223ef76a43296eb7c152b/ocpsvg-0.6.0-py3-none-any.whl", hash = "sha256:5cfc6deb2f602ded845596409e41fe8f5e1b389e14e8cc727db0955f0e88de7b", size = 20847, upload-time = "2026-01-08T12:31:33.804Z" },
+    { url = "https://files.pythonhosted.org/packages/e1/7b/0cf408c8c2bdf10685a284253e0004e6c672a9dbd23070d0889f4b54b284/ocpsvg-0.5.0-py3-none-any.whl", hash = "sha256:68cafdc3d681a1707530360baf2d51cfd58414b7d439f42eafbd31e842cf295e", size = 20789, upload-time = "2025-02-21T15:54:10.405Z" },
 ]
 
 [[package]]

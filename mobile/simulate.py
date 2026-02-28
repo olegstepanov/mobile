@@ -8,16 +8,73 @@ angle.  Pure Python — no external dependencies beyond the standard library.
 from __future__ import annotations
 
 from dataclasses import replace
+import math
 from pathlib import Path
+import struct
 from typing import TYPE_CHECKING
 
 from mobile.arc_math import arc_y_at_x
-from mobile.blender_pivot import compute_com, equilibrium_angle_from_com
 from mobile.errors import MobileSimulationError
 from mobile.resolve import ResolvedBranch, ResolvedLeaf, ResolvedTree
 
 if TYPE_CHECKING:
     from mobile.config import MobileConfig
+
+
+# ---------------------------------------------------------------------------
+# Mesh COM helpers
+# ---------------------------------------------------------------------------
+
+def compute_com(stl_path: str) -> tuple[float, float, float, float]:
+    """Compute volume-weighted center of mass from a binary STL file."""
+    with open(stl_path, "rb") as f:
+        f.read(80)  # header
+        (num_tris,) = struct.unpack("<I", f.read(4))
+
+        vol_total = 0.0
+        com_x = 0.0
+        com_y = 0.0
+        com_z = 0.0
+
+        for _ in range(num_tris):
+            data = f.read(50)  # 12 (normal) + 36 (3 vertices) + 2 (attrib)
+            vals = struct.unpack("<12fH", data)
+
+            v0 = (vals[3], vals[4], vals[5])
+            v1 = (vals[6], vals[7], vals[8])
+            v2 = (vals[9], vals[10], vals[11])
+
+            vol = (
+                v0[0] * (v1[1] * v2[2] - v1[2] * v2[1])
+                - v0[1] * (v1[0] * v2[2] - v1[2] * v2[0])
+                + v0[2] * (v1[0] * v2[1] - v1[1] * v2[0])
+            ) / 6.0
+
+            vol_total += vol
+            com_x += vol * (v0[0] + v1[0] + v2[0]) / 4.0
+            com_y += vol * (v0[1] + v1[1] + v2[1]) / 4.0
+            com_z += vol * (v0[2] + v1[2] + v2[2]) / 4.0
+
+    if abs(vol_total) > 1e-10:
+        com_x /= vol_total
+        com_y /= vol_total
+        com_z /= vol_total
+
+    return com_x, com_y, com_z, abs(vol_total)
+
+
+def equilibrium_angle_from_com(
+    com_x: float,
+    com_y: float,
+    pivot_x: float,
+    pivot_y: float,
+) -> float:
+    """Compute equilibrium tilt angle (degrees) from COM and pivot."""
+    dx = com_x - pivot_x
+    dy = pivot_y - com_y
+    if dy <= 0:
+        return 0.0
+    return math.degrees(math.atan2(dx, dy))
 
 
 # ---------------------------------------------------------------------------
@@ -27,33 +84,22 @@ if TYPE_CHECKING:
 def _collect_branches(
     node: ResolvedTree,
     path: str,
-    branches: dict[str, tuple[ResolvedBranch, str]],
-    tree_map: dict[str, dict[str, str | None]],
-    depth_map: dict[str, int],
-    depth: int,
+    branches: dict[str, ResolvedBranch],
 ) -> None:
-    """Walk the tree and collect branch info, tree connectivity, and depths."""
+    """Walk the tree and collect all branch nodes by path label."""
     if isinstance(node, ResolvedLeaf):
         return
 
     label = path if path else "0"
-    branches[label] = (node, label)
-    depth_map[label] = depth
-
-    left_child: str | None = None
-    right_child: str | None = None
+    branches[label] = node
 
     if isinstance(node.left, ResolvedBranch):
         left_label = path + "L" if path else "L"
-        left_child = left_label
-        _collect_branches(node.left, left_label, branches, tree_map, depth_map, depth + 1)
+        _collect_branches(node.left, left_label, branches)
 
     if isinstance(node.right, ResolvedBranch):
         right_label = path + "R" if path else "R"
-        right_child = right_label
-        _collect_branches(node.right, right_label, branches, tree_map, depth_map, depth + 1)
-
-    tree_map[label] = {"left_child": left_child, "right_child": right_child}
+        _collect_branches(node.right, right_label, branches)
 
 
 def _compute_target_angle(branch: ResolvedBranch, config: MobileConfig) -> float:
@@ -65,19 +111,6 @@ def _compute_target_angle(branch: ResolvedBranch, config: MobileConfig) -> float
         return angle_hint
     else:  # "blend"
         return (1.0 - config.blend_ratio) * angle_hint
-
-
-def _group_by_level(depth_map: dict[str, int]) -> list[list[str]]:
-    """Group branch labels by depth, bottom-up (deepest first)."""
-    if not depth_map:
-        return []
-    max_depth = max(depth_map.values())
-    levels: list[list[str]] = []
-    for d in range(max_depth, -1, -1):
-        level = [label for label, dep in depth_map.items() if dep == d]
-        if level:
-            levels.append(level)
-    return levels
 
 
 # ---------------------------------------------------------------------------
@@ -250,14 +283,12 @@ def simulate_mobile(
         return tree
 
     # Collect tree structure
-    branches: dict[str, tuple[ResolvedBranch, str]] = {}
-    tree_map: dict[str, dict[str, str | None]] = {}
-    depth_map: dict[str, int] = {}
-    _collect_branches(tree, "", branches, tree_map, depth_map, 0)
+    branches: dict[str, ResolvedBranch] = {}
+    _collect_branches(tree, "", branches)
 
     results: dict[str, dict] = {}
 
-    for label, (branch, _) in branches.items():
+    for label, branch in branches.items():
         stl_name = "arc-0.stl" if label == "0" else f"arc-{label}.stl"
         stl_path = stl_dir / stl_name
         if not stl_path.exists():

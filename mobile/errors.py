@@ -6,11 +6,11 @@ class MobileError(Exception):
 
 
 class MobileShapeError(MobileError):
-    """Holes in level N ≠ nodes in level N+1."""
+    """Invalid row matrix shape (hole continuity mismatch, empty rows, etc.)."""
 
 
 class MobileArcError(MobileError):
-    """Node without arc and no level default."""
+    """Invalid arc configuration."""
 
 
 class MobileWeightError(MobileError):

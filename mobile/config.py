@@ -11,10 +11,16 @@ class MobileConfig:
     arc_bar_height: float = 2.0  # mm (cross-section)
     hole_diameter: float = 0.8  # mm (fishing line)
     hole_tip_inset: float = 2.0  # mm inward from arc tip for child holes
-    font: str = "Cormorant Garamond"
+    font: str = "Stardos Stencil"
     font_path: str | None = None  # path to .ttf/.otf file (overrides font name)
-    font_size: float = 14.0  # mm
-    # How to interpret Node/Level rotation hints:
+    # Default tuned so stencil letters fill most of the 30x30 circle asset.
+    font_size: float = 22.0  # mm
+    hook_style: str = "line"  # "line" | "hook"
+    hook_outer_radius: float = 4.0  # mm
+    hook_thickness: float = 1.2  # mm radial wall
+    hook_gap: float = 3.0  # mm opening in the C hook
+    hook_offset_y: float = -1.0  # mm relative to endpoint
+    # How to interpret arc rotation hints:
     # - "equilibrium": ignore hints; solve pivot so the arc hangs level (0°)
     # - "hint": solve pivot so the arc's equilibrium tilt matches the hint angle
     # - "blend": partially apply the hint by scaling it (see blend_ratio)

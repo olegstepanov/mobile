@@ -1,4 +1,4 @@
-"""mobile.resolve — Level-to-tree resolution and bottom-up physics computation."""
+"""mobile.resolve — Grid-to-tree resolution and bottom-up physics computation."""
 
 from __future__ import annotations
 
@@ -57,7 +57,6 @@ class _IntermediateNode:
     right_child: _IntermediateNode | Leaf | None
     arc: Arc
     rotation: float  # effective rotation (node + level)
-    scale: float  # level scale
 
 
 # ---------------------------------------------------------------------------
@@ -65,21 +64,18 @@ class _IntermediateNode:
 # ---------------------------------------------------------------------------
 
 def _link_levels(mobile: Mobile) -> _IntermediateNode:
-    """Convert level-based representation to a single rooted binary tree."""
+    """Convert grid-row representation to a single rooted binary tree."""
     # Build all intermediate nodes for all levels
     all_level_nodes: list[list[_IntermediateNode]] = []
 
-    for level in mobile.levels:
+    for row in mobile.grid:
         level_nodes = []
-        for node in level.nodes:
-            arc = node.arc if node.arc is not None else level.arc
-            effective_rotation = node.rotation + level.rotation
+        for cell in row:
             inode = _IntermediateNode(
-                left_child=node.left,
-                right_child=node.right,
-                arc=arc,
-                rotation=effective_rotation,
-                scale=level.scale,
+                left_child=cell.left,
+                right_child=cell.right,
+                arc=cell.arc,
+                rotation=cell.arc.rotation,
             )
             level_nodes.append(inode)
         all_level_nodes.append(level_nodes)
@@ -155,7 +151,8 @@ def _resolve_node(
         net_area = _compute_leaf_area(node, config)
         volume = net_area * config.leaf_thickness
         scale = node.scale * cumulative_scale
-        weight = volume * config.density * scale
+        # Leaf scale is XY-only (thickness is constant), so mass follows area.
+        weight = volume * config.density * (scale ** 2)
 
         if weight < 0:
             raise MobileWeightError(
@@ -176,7 +173,7 @@ def _resolve_node(
     # It's an _IntermediateNode (branch)
     assert isinstance(node, _IntermediateNode)
 
-    child_scale = cumulative_scale * node.scale
+    child_scale = cumulative_scale
 
     left_resolved = _resolve_node(node.left_child, config, child_scale)
     right_resolved = _resolve_node(node.right_child, config, child_scale)
@@ -184,7 +181,7 @@ def _resolve_node(
     total_weight = left_resolved.weight + right_resolved.weight
     angle_hint = node.rotation
 
-    # Midpoint pivot — Blender simulation will find the real pivot later.
+    # Midpoint pivot — COM solver will refine the real pivot later.
     pivot_mm = node.arc.w / 2.0
     pivot = 0.5
     angle_eq = 0.0

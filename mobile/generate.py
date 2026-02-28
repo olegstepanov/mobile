@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from build123d import (
+    Box,
     Compound,
     Cylinder,
     Face,
@@ -98,6 +99,7 @@ def _make_leaf_parts(
     positive_body may be None if the leaf has no positive atoms.
     """
     thickness = config.leaf_thickness
+    xy_scale = leaf.scale
     pos_body: Part | None = None
     neg_cutters: list[Part] = []
     neg_cutter_is_text: list[bool] = []  # track origin for centering fix
@@ -107,12 +109,13 @@ def _make_leaf_parts(
             shapes = import_svg(atom.path)
             faces = [s for s in shapes if isinstance(s, Face)]
             for face in faces:
+                face_scaled = face.scale(xy_scale) if xy_scale != 1.0 else face
                 if atom.neg:
-                    cutter = extrude(face, amount=thickness * 1.5)
+                    cutter = extrude(face_scaled, amount=thickness * 1.5)
                     neg_cutters.append(cutter)
                     neg_cutter_is_text.append(False)
                 else:
-                    solid = extrude(face, amount=thickness)
+                    solid = extrude(face_scaled, amount=thickness)
                     if pos_body is None:
                         pos_body = solid
                     else:
@@ -132,10 +135,11 @@ def _make_leaf_parts(
             # Compute the visual BB centre and pre-shift each cutter so
             # it is truly at (0, 0) before the later SVG-centre step.
             tbb = text_compound.bounding_box()
-            txt_cx = (tbb.min.X + tbb.max.X) / 2.0
-            txt_cy = (tbb.min.Y + tbb.max.Y) / 2.0
+            txt_cx = (tbb.min.X + tbb.max.X) / 2.0 * xy_scale
+            txt_cy = (tbb.min.Y + tbb.max.Y) / 2.0 * xy_scale
             for face in text_compound.faces():
-                cutter = extrude(face, amount=thickness * 1.5)
+                face_scaled = face.scale(xy_scale) if xy_scale != 1.0 else face
+                cutter = extrude(face_scaled, amount=thickness * 1.5)
                 cutter = Pos(-txt_cx, -txt_cy, 0) * cutter
                 neg_cutters.append(cutter)
                 neg_cutter_is_text.append(True)
@@ -172,11 +176,10 @@ def _make_leaf_parts(
     pos_body = centering * pos_body
     neg_cutters = [centering * c for c in neg_cutters]
 
-    # --- Apply leaf-level scale and rotation (around the now-centred origin)
-
-    if leaf.scale != 1.0:
-        pos_body = pos_body.scale(leaf.scale)
-        neg_cutters = [c.scale(leaf.scale) for c in neg_cutters]
+    # --- Apply leaf-level rotation (around the now-centred origin).
+    #
+    # Leaf scaling is intentionally applied in 2D before extrusion so
+    # thickness remains constant and leaf/arc intersections stay flush.
 
     if leaf.rotation != 0.0:
         r = Rot(0, 0, leaf.rotation)
@@ -250,6 +253,23 @@ def _cut_endpoint_hole(
     return _cut(piece, hole)
 
 
+def _make_endpoint_hook(config: MobileConfig) -> Part:
+    """Create a simple printable C-hook solid centered at origin."""
+    outer_r = max(config.hook_outer_radius, 1.0)
+    wall = max(min(config.hook_thickness, outer_r * 0.8), 0.4)
+    depth = max(config.arc_bar_height, config.arc_bar_width, 1.0)
+    gap = max(config.hook_gap, wall * 1.2)
+
+    outer = Cylinder(radius=outer_r, height=depth)
+    inner = Cylinder(radius=max(outer_r - wall, 0.2), height=depth * 1.2)
+    hook = _cut(outer, inner)
+
+    # Open the ring into a C profile.
+    gap_box = Pos(outer_r - gap / 2.0, 0, 0) * Box(gap, outer_r * 2.4, depth * 2.0)
+    hook = _cut(hook, gap_box)
+    return hook
+
+
 # ---------------------------------------------------------------------------
 # Branch generation (recursive)
 # ---------------------------------------------------------------------------
@@ -311,11 +331,24 @@ def _generate_branch(
         # 5. Cut pivot hole (always, vertical)
         piece = _cut_pivot_hole(piece, branch, config)
 
-        # 6. Cut endpoint holes only where child is a sub-arc (hole in DSL)
-        if isinstance(branch.left, ResolvedBranch):
-            piece = _cut_endpoint_hole(piece, branch, "left", config)
-        if isinstance(branch.right, ResolvedBranch):
-            piece = _cut_endpoint_hole(piece, branch, "right", config)
+        # 6. Continuation attachment style at arc endpoints.
+        if config.hook_style == "hook":
+            hook = _make_endpoint_hook(config)
+            if isinstance(branch.left, ResolvedBranch):
+                piece = _fuse(
+                    piece,
+                    Pos(left_x, left_y + config.hook_offset_y, 0) * Rot(0, 0, 180) * hook,
+                )
+            if isinstance(branch.right, ResolvedBranch):
+                piece = _fuse(
+                    piece,
+                    Pos(right_x, right_y + config.hook_offset_y, 0) * hook,
+                )
+        else:
+            if isinstance(branch.left, ResolvedBranch):
+                piece = _cut_endpoint_hole(piece, branch, "left", config)
+            if isinstance(branch.right, ResolvedBranch):
+                piece = _cut_endpoint_hole(piece, branch, "right", config)
 
     # 7. Export
     if not path_prefix:

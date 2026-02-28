@@ -1,7 +1,7 @@
-"""mobile — DSL for balanced hanging mobiles with STL generation."""
+"""mobile — grid-first DSL for hanging mobile generation."""
 
 from mobile.config import MobileConfig
-from mobile.dsl import Arc, Leaf, Level, Mobile, Node, Space, Svg, Txt, _
+from mobile.dsl import Arc, Cell, Leaf, Mobile, Space, Svg, Txt, stencil_cut
 from mobile.errors import (
     MobileArcError,
     MobileEmptyError,
@@ -11,14 +11,30 @@ from mobile.errors import (
     MobileSimulationError,
     MobileWeightError,
 )
-from mobile.generate import generate
-from mobile.resolve import resolve
-from mobile.simulate import simulate_mobile
+
+
+def generate(*args, **kwargs):
+    from mobile.generate import generate as _generate
+
+    return _generate(*args, **kwargs)
+
+
+def resolve(*args, **kwargs):
+    from mobile.resolve import resolve as _resolve
+
+    return _resolve(*args, **kwargs)
+
+
+def simulate_mobile(*args, **kwargs):
+    from mobile.simulate import simulate_mobile as _simulate_mobile
+
+    return _simulate_mobile(*args, **kwargs)
+
 
 __all__ = [
     "Arc",
+    "Cell",
     "Leaf",
-    "Level",
     "Mobile",
     "MobileArcError",
     "MobileConfig",
@@ -28,12 +44,11 @@ __all__ = [
     "MobileShapeError",
     "MobileSimulationError",
     "MobileWeightError",
-    "Node",
     "Space",
     "Svg",
     "Txt",
-    "_",
     "generate",
     "resolve",
     "simulate_mobile",
+    "stencil_cut",
 ]
