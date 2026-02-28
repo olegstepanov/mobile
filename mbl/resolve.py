@@ -1,4 +1,4 @@
-"""mobile.resolve — Grid-to-tree resolution and bottom-up physics computation."""
+"""mbl.resolve — Grid-to-tree resolution and bottom-up physics computation."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 
 from build123d import Face, import_svg, Compound, FontStyle, TextAlign
 
-from mobile.dsl import Arc, Leaf, Svg, Txt
-from mobile.errors import MobileWeightError
+from mbl.dsl import Arc, Leaf, Svg, Txt
+from mbl.errors import MobileWeightError
 
 if TYPE_CHECKING:
-    from mobile.config import MobileConfig
-    from mobile.dsl import Mobile
+    from mbl.config import MobileConfig
+    from mbl.dsl import Mobile
 
 
 # ---------------------------------------------------------------------------

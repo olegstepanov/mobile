@@ -5,9 +5,11 @@ Generate parametric hanging mobiles with a small Python DSL and export printable
 ## CLI
 
 ```bash
-pip install mbl
-mbl "HELLO" --output hello.3mf
-mbl "XYZ" --leaf-shape burst --output xyz.3mf
+git clone <repo-url>
+cd <repo-dir>
+uv sync
+uv run mbl "HELLO" --output hello.3mf
+uv run mbl "XYZ" --leaf-shape burst --output xyz.3mf
 ```
 
 Key flags:
@@ -20,11 +22,13 @@ Key flags:
 
 ## Python SDK DSL
 
-```python
+```bash
+uv run python - <<'PY'
 from mbl import Mobile
 
 Mobile.from_word("HELLO", leaf_shape="circle").to_file("hello.3mf")
 Mobile.from_word("XYZ", leaf_shape="burst").to_file("xyz.3mf")
+PY
 ```
 
 ## DSL shape

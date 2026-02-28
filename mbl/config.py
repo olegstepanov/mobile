@@ -1,4 +1,4 @@
-"""mobile.config — Global configuration for mobile generation."""
+"""mbl.config — Global configuration for mobile generation."""
 
 from dataclasses import dataclass
 

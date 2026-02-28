@@ -1,4 +1,4 @@
-"""mobile.simulate — COM-based pivot solver.
+"""mbl.simulate — COM-based pivot solver.
 
 Computes center of mass from intermediate STL files, then binary-searches
 for the pivot position on each arc bar that achieves the target equilibrium
@@ -13,12 +13,12 @@ from pathlib import Path
 import struct
 from typing import TYPE_CHECKING
 
-from mobile.arc_math import arc_y_at_x
-from mobile.errors import MobileSimulationError
-from mobile.resolve import ResolvedBranch, ResolvedLeaf, ResolvedTree
+from mbl.arc_math import arc_y_at_x
+from mbl.errors import MobileSimulationError
+from mbl.resolve import ResolvedBranch, ResolvedLeaf, ResolvedTree
 
 if TYPE_CHECKING:
-    from mobile.config import MobileConfig
+    from mbl.config import MobileConfig
 
 
 # ---------------------------------------------------------------------------

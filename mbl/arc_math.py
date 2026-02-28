@@ -1,8 +1,8 @@
-"""mobile.arc_math — Pure math helpers for sagitta arcs and pivot solving.
+"""mbl.arc_math — Pure math helpers for sagitta arcs and pivot solving.
 
 This module is intentionally build123d-free so it can be used by both:
-- `mobile.resolve` (physics / layout decisions)
-- `mobile.generate` (geometry generation)
+- `mbl.resolve` (physics / layout decisions)
+- `mbl.generate` (geometry generation)
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ def _circle_radius_from_sagitta(chord: float, sagitta: float) -> float:
 def arc_y_at_x(arc_w: float, arc_h: float, pivot_mm: float, x: float) -> float:
     """Compute Y coordinate on the sagitta arc at local X.
 
-    Coordinates match `mobile.generate` conventions:
+    Coordinates match `mbl.generate` conventions:
     - local origin is at the pivot projection on the chord line (x=0 on chord)
     - arc endpoints are at:
         left  = (-pivot_mm, 0)

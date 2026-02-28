@@ -1,4 +1,4 @@
-"""mobile.dsl — Grid-first DSL for parametric hanging mobiles.
+"""mbl.dsl — Grid-first DSL for parametric hanging mobiles.
 
 Canonical structure: a row matrix.
 - each row = one mobile level
@@ -14,10 +14,10 @@ import shutil
 import tempfile
 from typing import Sequence, Union
 
-from mobile.config import MobileConfig
-from mobile.errors import MobileEmptyError, MobileShapeError
-from mobile.stl import merge_stl_files
-from mobile.three_mf import export_3mf_files
+from mbl.config import MobileConfig
+from mbl.errors import MobileEmptyError, MobileShapeError
+from mbl.stl import merge_stl_files
+from mbl.three_mf import export_3mf_files
 
 
 # ---------------------------------------------------------------------------
@@ -311,9 +311,9 @@ class Mobile:
 
     def build(self, output_dir: str | Path) -> None:
         """Resolve pivots and export one STL per arc piece."""
-        from mobile.generate import generate
-        from mobile.resolve import resolve
-        from mobile.simulate import simulate_mobile
+        from mbl.generate import generate
+        from mbl.resolve import resolve
+        from mbl.simulate import simulate_mobile
 
         tree = resolve(self)
         with tempfile.TemporaryDirectory() as tmp:

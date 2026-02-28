@@ -5,18 +5,18 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from mobile import Mobile, MobileConfig
+from mbl import Mobile, MobileConfig
 
 
 def _default_font_path() -> str | None:
-    font = Path(__file__).resolve().parent.parent / "mobile" / "assets" / "StardosStencil-Regular.ttf"
+    font = Path(__file__).resolve().parent / "assets" / "StardosStencil-Regular.ttf"
     return str(font) if font.exists() else None
 
 
 def _default_output_path(word: str) -> Path:
     stem = "".join(ch.lower() if ch.isalnum() else "-" for ch in word).strip("-")
     if not stem:
-        stem = "mobile"
+        stem = "mbl"
     while "--" in stem:
         stem = stem.replace("--", "-")
     return Path(f"{stem}.3mf")

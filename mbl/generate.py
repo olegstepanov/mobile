@@ -1,4 +1,4 @@
-"""mobile.generate — build123d geometry generation and STL export.
+"""mbl.generate — build123d geometry generation and STL export.
 
 Each ResolvedBranch produces one fused STL containing the arc bar plus
 any direct leaf children.  Sub-arc children get radial endpoint holes.
@@ -29,12 +29,12 @@ from build123d import (
     sweep,
 )
 
-from mobile.resolve import ResolvedBranch, ResolvedLeaf, ResolvedTree
-from mobile.dsl import Svg, Txt
-from mobile.arc_math import arc_y_at_x
+from mbl.resolve import ResolvedBranch, ResolvedLeaf, ResolvedTree
+from mbl.dsl import Svg, Txt
+from mbl.arc_math import arc_y_at_x
 
 if TYPE_CHECKING:
-    from mobile.config import MobileConfig
+    from mbl.config import MobileConfig
 
 
 # ---------------------------------------------------------------------------

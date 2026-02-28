@@ -1,4 +1,4 @@
-"""mobile.errors — Exception hierarchy for the mobile DSL."""
+"""mbl.errors — Exception hierarchy for the mobile DSL."""
 
 
 class MobileError(Exception):

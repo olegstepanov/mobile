@@ -6,7 +6,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 import zipfile
 
-from mobile.stl import Triangle, read_binary_stl
+from mbl.stl import Triangle, read_binary_stl
 
 CORE_NS = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"
 REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"

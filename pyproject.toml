@@ -14,10 +14,10 @@ dependencies = [
 mbl = "mbl.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["mobile*", "mbl*"]
+include = ["mbl*"]
 
 [tool.setuptools.package-data]
-mobile = ["assets/*.svg", "assets/*.ttf"]
+mbl = ["assets/*.svg", "assets/*.ttf"]
 
 [dependency-groups]
 dev = [
