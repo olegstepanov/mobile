@@ -12,9 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import tempfile
+import warnings
 from typing import Sequence, Union
 
-from build123d import Face, import_svg
+from build123d import Compound, Face, FontStyle, TextAlign, import_svg
 
 from mbl.config import MobileConfig
 from mbl.errors import MobileEmptyError, MobileShapeError
@@ -200,6 +201,22 @@ BUILTIN_SHAPES = {
 }
 
 
+def _can_use_helvetica_neue_bold() -> bool:
+    """Return True when text engine can render Helvetica Neue in bold style."""
+    try:
+        Compound.make_text(
+            txt="A",
+            font_size=8.0,
+            font="Helvetica Neue",
+            font_path=None,
+            font_style=FontStyle.BOLD,
+            text_align=(TextAlign.CENTER, TextAlign.CENTER),
+        )
+    except Exception:
+        return False
+    return True
+
+
 def _to_leaf(obj: Atom | Space | Leaf | None) -> Leaf | None:
     if obj is None:
         return None
@@ -325,14 +342,28 @@ class Mobile:
             raise ValueError("text_scale must be > 0")
 
         cfg = config or MobileConfig()
-        if cfg.font_path is None:
-            bundled_font = _asset_path("StardosStencil-Regular.ttf")
-            if bundled_font.exists():
-                cfg.font_path = str(bundled_font)
         count = len(word)
         rows: list[Cell] = []
         base_leaf = _shape_leaf(shape, shape_scale=shape_scale)
         is_blank = base_leaf is None
+
+        default_font_name = MobileConfig().font
+        using_default_font = cfg.font_path is None and cfg.font == default_font_name
+        if using_default_font:
+            if is_blank:
+                if _can_use_helvetica_neue_bold():
+                    cfg.font = "Helvetica Neue Bold"
+                    cfg.font_path = None
+                else:
+                    warnings.warn(
+                        "shape='blank' prefers 'Helvetica Neue Bold', but it is not "
+                        "available on this system. Falling back to default font.",
+                        stacklevel=2,
+                    )
+            else:
+                bundled_font = _asset_path("StardosStencil-Regular.ttf")
+                if bundled_font.exists():
+                    cfg.font_path = str(bundled_font)
 
         for idx, ch in enumerate(word):
             ratio = idx / max(1, count - 1)

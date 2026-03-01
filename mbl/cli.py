@@ -8,11 +8,6 @@ from pathlib import Path
 from mbl import Mobile, MobileConfig
 
 
-def _default_font_path() -> str | None:
-    font = Path(__file__).resolve().parent / "assets" / "StardosStencil-Regular.ttf"
-    return str(font) if font.exists() else None
-
-
 def _default_output_path(word: str) -> Path:
     stem = "".join(ch.lower() if ch.isalnum() else "-" for ch in word).strip("-")
     if not stem:
@@ -61,9 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
-    font_path = args.font_path or _default_font_path()
     config = MobileConfig(
-        font_path=font_path,
+        font_path=args.font_path,
         font_size=args.font_size,
         hook_style=args.hook_style,
     )

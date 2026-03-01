@@ -47,6 +47,17 @@ ResolvedTree = ResolvedLeaf | ResolvedBranch
 
 
 # ---------------------------------------------------------------------------
+# Font mapping
+# ---------------------------------------------------------------------------
+
+def _text_font_params(config: MobileConfig) -> tuple[str, FontStyle]:
+    """Map logical font config to build123d font + style."""
+    if config.font == "Helvetica Neue Bold" and config.font_path is None:
+        return "Helvetica Neue", FontStyle.BOLD
+    return config.font, FontStyle.REGULAR
+
+
+# ---------------------------------------------------------------------------
 # Intermediate mutable node for tree linking
 # ---------------------------------------------------------------------------
 
@@ -112,12 +123,13 @@ def _compute_leaf_area(leaf: Leaf, config: MobileConfig) -> float:
             else:
                 positive_area += atom_area
         elif isinstance(atom, Txt):
+            font_name, font_style = _text_font_params(config)
             text_compound = Compound.make_text(
                 txt=atom.text,
                 font_size=config.font_size * atom.scale,
-                font=config.font,
+                font=font_name,
                 font_path=config.font_path,
-                font_style=FontStyle.REGULAR,
+                font_style=font_style,
                 text_align=(TextAlign.CENTER, TextAlign.CENTER),
             )
             atom_area = sum(f.area for f in text_compound.faces())

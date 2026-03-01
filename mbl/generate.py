@@ -67,6 +67,13 @@ def _intersect(a, b):
     return result
 
 
+def _text_font_params(config: MobileConfig) -> tuple[str, FontStyle]:
+    """Map logical font config to build123d font + style."""
+    if config.font == "Helvetica Neue Bold" and config.font_path is None:
+        return "Helvetica Neue", FontStyle.BOLD
+    return config.font, FontStyle.REGULAR
+
+
 # ---------------------------------------------------------------------------
 # Arc bar creation
 # ---------------------------------------------------------------------------
@@ -104,48 +111,20 @@ def _trim_arc_tip_to_leaf(
     if side not in {"left", "right"}:
         return piece
 
-    # Vertical cut means we search/cut along X only:
-    # left endpoint trims toward +X, right endpoint trims toward -X.
-    ux = 1.0 if side == "left" else -1.0
-
-    def _hits_at_t(t: float) -> bool:
-        # Probe a small station and test volumetric overlap.
-        x = tip_x + ux * t
-        probe = Pos(x, 0, 0) * Box(0.2, 1000.0, 1000.0)
-        station = _intersect(piece, probe)
-        if station is None:
-            return False
-        inter = _intersect(station, leaf_solid)
-        if inter is None:
-            return False
-        vol = getattr(inter, "volume", 0.0)
-        return bool(vol and vol > 1e-7)
-
-    steps = max(100, min(360, int(span_mm / 0.25)))
-    samples_t = [span_mm * (i / steps) for i in range(steps + 1)]
-    hits = [_hits_at_t(t) for t in samples_t]
-
-    deepest_idx = None
-    for i, hit in enumerate(hits):
-        if hit:
-            deepest_idx = i
-
-    if deepest_idx is None:
+    # Fast path: intersect once and use overlap bounds along X.
+    overlap = _intersect(piece, leaf_solid)
+    if overlap is None:
         return piece
 
-    boundary_t = samples_t[deepest_idx]
-
-    # Refine the trailing boundary after deepest overlap.
-    if deepest_idx + 1 < len(samples_t) and not hits[deepest_idx + 1]:
-        lo = samples_t[deepest_idx]
-        hi = samples_t[deepest_idx + 1]
-        for _ in range(12):
-            mid = (lo + hi) / 2.0
-            if _hits_at_t(mid):
-                lo = mid
-            else:
-                hi = mid
-        boundary_t = lo
+    bb = overlap.bounding_box()
+    if side == "left":
+        boundary_t = bb.max.X - tip_x
+        ux = 1.0
+    else:
+        boundary_t = tip_x - bb.min.X
+        ux = -1.0
+    if boundary_t <= 0:
+        return piece
 
     # Pull trim 2 mm back from overlap boundary so the arc intrudes into shape.
     cut_t = max(0.0, min(span_mm, boundary_t - 2.0))
@@ -207,12 +186,13 @@ def _make_leaf_parts(
                         pos_body = _fuse(pos_body, solid)
 
         elif isinstance(atom, Txt):
+            font_name, font_style = _text_font_params(config)
             text_compound = Compound.make_text(
                 txt=atom.text,
                 font_size=config.font_size * atom.scale,
-                font=config.font,
+                font=font_name,
                 font_path=config.font_path,
-                font_style=FontStyle.REGULAR,
+                font_style=font_style,
                 text_align=(TextAlign.CENTER, TextAlign.CENTER),
             )
             # TextAlign.CENTER centres on typographic metrics (ascender/
@@ -225,10 +205,18 @@ def _make_leaf_parts(
             txt_cy = (tbb.min.Y + tbb.max.Y) / 2.0 * glyph_scale
             for face in text_compound.faces():
                 face_scaled = face.scale(glyph_scale) if glyph_scale != 1.0 else face
-                cutter = extrude(face_scaled, amount=thickness * 1.5)
-                cutter = Pos(-txt_cx, -txt_cy, 0) * cutter
-                neg_cutters.append(cutter)
-                neg_cutter_is_text.append(True)
+                if atom.neg:
+                    cutter = extrude(face_scaled, amount=thickness * 1.5)
+                    cutter = Pos(-txt_cx, -txt_cy, 0) * cutter
+                    neg_cutters.append(cutter)
+                    neg_cutter_is_text.append(True)
+                else:
+                    solid = extrude(face_scaled, amount=thickness)
+                    solid = Pos(-txt_cx, -txt_cy, 0) * solid
+                    if pos_body is None:
+                        pos_body = solid
+                    else:
+                        pos_body = _fuse(pos_body, solid)
 
     if pos_body is None:
         return None, neg_cutters

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import xml.etree.ElementTree as ET
+from xml.sax.saxutils import escape
 import zipfile
 
 from mbl.stl import Triangle, read_binary_stl
@@ -40,50 +41,46 @@ def _mesh_bounds_xy(triangles: list[Triangle]) -> tuple[float, float, float, flo
 
 
 def _build_model_xml(part_meshes: list[tuple[str, list[Triangle], float, float]]) -> bytes:
-    ET.register_namespace("", CORE_NS)
-    model = ET.Element(f"{{{CORE_NS}}}model", {"unit": "millimeter", "xml:lang": "en-US"})
-    resources = ET.SubElement(model, f"{{{CORE_NS}}}resources")
-    build = ET.SubElement(model, f"{{{CORE_NS}}}build")
+    # Manual XML assembly is much faster than ElementTree for large meshes.
+    chunks: list[str] = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        f'<model unit="millimeter" xml:lang="en-US" xmlns="{CORE_NS}">',
+        "<resources>",
+    ]
+    build_items: list[str] = []
 
     for object_id, (name, triangles, offset_x, offset_y) in enumerate(part_meshes, start=1):
-        obj = ET.SubElement(
-            resources,
-            f"{{{CORE_NS}}}object",
-            {"id": str(object_id), "type": "model", "name": name},
-        )
-        mesh = ET.SubElement(obj, f"{{{CORE_NS}}}mesh")
-        vertices_el = ET.SubElement(mesh, f"{{{CORE_NS}}}vertices")
-        triangles_el = ET.SubElement(mesh, f"{{{CORE_NS}}}triangles")
+        safe_name = escape(name, {'"': "&quot;"})
+        chunks.append(f'<object id="{object_id}" type="model" name="{safe_name}"><mesh><vertices>')
 
         vertex_indices: dict[tuple[float, float, float], int] = {}
         tri_indices: list[tuple[int, int, int]] = []
 
         for v0, v1, v2 in triangles:
-            tri = []
+            tri: list[int] = []
             for vx, vy, vz in (v0, v1, v2):
                 key = (vx + offset_x, vy + offset_y, vz)
                 idx = vertex_indices.get(key)
                 if idx is None:
                     idx = len(vertex_indices)
                     vertex_indices[key] = idx
-                    ET.SubElement(
-                        vertices_el,
-                        f"{{{CORE_NS}}}vertex",
-                        {"x": _fmt(key[0]), "y": _fmt(key[1]), "z": _fmt(key[2])},
+                    chunks.append(
+                        f'<vertex x="{_fmt(key[0])}" y="{_fmt(key[1])}" z="{_fmt(key[2])}"/>'
                     )
                 tri.append(idx)
             tri_indices.append((tri[0], tri[1], tri[2]))
 
+        chunks.append("</vertices><triangles>")
         for a, b, c in tri_indices:
-            ET.SubElement(
-                triangles_el,
-                f"{{{CORE_NS}}}triangle",
-                {"v1": str(a), "v2": str(b), "v3": str(c)},
-            )
+            chunks.append(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>')
+        chunks.append("</triangles></mesh></object>")
 
-        ET.SubElement(build, f"{{{CORE_NS}}}item", {"objectid": str(object_id)})
+        build_items.append(f'<item objectid="{object_id}"/>')
 
-    return ET.tostring(model, encoding="utf-8", xml_declaration=True)
+    chunks.append("</resources><build>")
+    chunks.extend(build_items)
+    chunks.append("</build></model>")
+    return "".join(chunks).encode("utf-8")
 
 
 def _content_types_xml() -> bytes:
