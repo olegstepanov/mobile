@@ -6,24 +6,23 @@ Generate printable hanging mobiles from words.
 
 ```bash
 uv sync
-uv run mbl "HELLO" --output hello.3mf
+uv run mbl "HELLO"
 ```
 
 Shape modes:
 
 ```bash
 # Built-in shape, normalized to 25 mm diameter at shape-scale 1.0
-uv run mbl "HELLO" --shape burst --output hello-burst.3mf
-uv run mbl "HELLO" --shape shopify --output hello-shopify.3mf
+uv run mbl "LOVE" --shape heart
 
 # Custom SVG, normalized to 25 mm diameter at shape-scale 1.0
-uv run mbl "HELLO" --shape custom-shape.svg --output hello-custom.3mf
+uv run mbl "HELLO" --shape custom-shape.svg
 
-# Blank mode: no background shape, letters are positive geometry
-uv run mbl "HELLO" --shape blank --output hello-blank.3mf
+# Use whitespace if no text is needed
+uv run mbl "     " --shape shopify
 
-# Independent scaling
-uv run mbl "HELLO" --shape custom-shape.svg --shape-scale 1.5 --text-scale 0.8 --output hello-scaled.3mf
+# Scale shape and font (relative to the scaled shape)
+uv run mbl "HELLO" --shape custom-shape.svg --shape-scale 1.5 --text-scale 0.8
 ```
 
 Key flags:
