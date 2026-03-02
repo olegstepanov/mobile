@@ -1,5 +1,9 @@
 # mbl
 
+<video src="https://w.astaff.io/NEST/2.webm" controls muted loop playsinline width="720"></video>
+
+Demo: https://w.astaff.io/NEST/2.webm
+
 Generate printable hanging mobiles with letters and shapes.
 
 ```bash
