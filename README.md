@@ -44,6 +44,43 @@ Mobile.from_word("HELLO", shape="custom-shape.svg", shape_scale=1.5, text_scale=
 Mobile.from_word("HELLO", shape="blank").to_file("hello-blank.3mf")
 ```
 
+## SDK (custom DSL, mixed shapes)
+
+```python
+from mbl import Arc, Leaf, Mobile, stencil_cut
+
+mobile = Mobile(
+    [
+        Arc(88, 12)
+        @ (
+            stencil_cut("S", base=Leaf.circle(), text_scale=0.7),
+            stencil_cut("U", base=Leaf.burst(), text_scale=0.7),
+        ),
+    ]
+)
+
+mobile.to_file("sun-mixed-shapes.3mf")
+```
+
+Two-row variant:
+
+```python
+from mbl import Arc, Leaf, Mobile, stencil_cut
+
+mobile = Mobile(
+    [
+        Arc(88, 12) @ (stencil_cut("S", base=Leaf.circle(), text_scale=0.7), None),
+        Arc(64, 9)
+        @ (
+            stencil_cut("U", base=Leaf.burst(), text_scale=0.7),
+            stencil_cut("N", base=Leaf.heart(), text_scale=0.7),
+        ),
+    ]
+)
+
+mobile.to_file("sun-two-row.3mf")
+```
+
 ## Shape semantics
 
 - Default shape is `circle`.
