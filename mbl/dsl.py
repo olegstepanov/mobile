@@ -19,6 +19,7 @@ from build123d import Compound, Face, FontStyle, TextAlign, import_svg
 
 from mbl.config import MobileConfig
 from mbl.errors import MobileEmptyError, MobileShapeError
+from mbl.perf import count, span
 from mbl.stl import merge_stl_files
 from mbl.three_mf import export_3mf_files
 
@@ -281,8 +282,10 @@ def _shape_path(shape: str) -> Path | None:
 
 
 def _svg_diameter(path: Path) -> float:
-    shapes = import_svg(str(path))
+    with span("shape.svg_diameter.import"):
+        shapes = import_svg(str(path))
     faces = [s for s in shapes if isinstance(s, Face)]
+    count("shape.svg_diameter.faces", len(faces))
     if not faces:
         raise ValueError(f"Shape '{path}' has no SVG faces")
 
@@ -456,20 +459,24 @@ class Mobile:
         from mbl.resolve import resolve
         from mbl.simulate import simulate_mobile
 
-        tree = resolve(self)
+        with span("build.resolve"):
+            tree = resolve(self)
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            generate(
-                tree,
-                self.config,
-                tmp_path,
-                skip_holes=True,
-                stl_tolerance_override=self.config.sim_stl_tolerance,
-                stl_angular_tolerance_override=self.config.sim_stl_angular_tolerance,
-            )
-            tree = simulate_mobile(tree, self.config, tmp_path)
+            with span("build.generate.sim"):
+                generate(
+                    tree,
+                    self.config,
+                    tmp_path,
+                    skip_holes=True,
+                    stl_tolerance_override=self.config.sim_stl_tolerance,
+                    stl_angular_tolerance_override=self.config.sim_stl_angular_tolerance,
+                )
+            with span("build.simulate"):
+                tree = simulate_mobile(tree, self.config, tmp_path)
 
-        generate(tree, self.config, Path(output_dir))
+        with span("build.generate.final"):
+            generate(tree, self.config, Path(output_dir))
 
     def to_stl(self, output_path: str | Path) -> Path:
         """Export a packed single STL and sidecar part STLs."""
@@ -478,12 +485,14 @@ class Mobile:
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            self.build(tmp_path)
+            with span("export.to_stl.build"):
+                self.build(tmp_path)
             parts = sorted(tmp_path.glob("arc-*.stl"))
             if not parts:
                 raise MobileEmptyError("No STL parts were generated")
 
-            merge_stl_files(parts, out)
+            with span("export.to_stl.merge"):
+                merge_stl_files(parts, out)
 
             stem = out.stem
             for stl in parts:
@@ -500,11 +509,13 @@ class Mobile:
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            self.build(tmp_path)
+            with span("export.to_3mf.build"):
+                self.build(tmp_path)
             parts = sorted(tmp_path.glob("arc-*.stl"))
             if not parts:
                 raise MobileEmptyError("No STL parts were generated")
-            export_3mf_files(parts, out)
+            with span("export.to_3mf.pack"):
+                export_3mf_files(parts, out)
 
         return out
 

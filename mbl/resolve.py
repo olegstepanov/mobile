@@ -9,6 +9,7 @@ from build123d import Face, import_svg, Compound, FontStyle, TextAlign
 
 from mbl.dsl import Arc, Leaf, Svg, Txt
 from mbl.errors import MobileWeightError
+from mbl.perf import count, is_enabled, span
 
 if TYPE_CHECKING:
     from mbl.config import MobileConfig
@@ -115,8 +116,10 @@ def _compute_leaf_area(leaf: Leaf, config: MobileConfig) -> float:
 
     for atom in leaf.space.layers:
         if isinstance(atom, Svg):
-            shapes = import_svg(atom.path)
+            with span("resolve.leaf_area.import_svg"):
+                shapes = import_svg(atom.path)
             faces = [s for s in shapes if isinstance(s, Face)]
+            count("resolve.leaf_area.svg_faces", len(faces))
             atom_area = sum(f.area for f in faces)
             if atom.neg:
                 negative_area += atom_area
@@ -124,15 +127,21 @@ def _compute_leaf_area(leaf: Leaf, config: MobileConfig) -> float:
                 positive_area += atom_area
         elif isinstance(atom, Txt):
             font_name, font_style = _text_font_params(config)
-            text_compound = Compound.make_text(
-                txt=atom.text,
-                font_size=config.font_size * atom.scale,
-                font=font_name,
-                font_path=config.font_path,
-                font_style=font_style,
-                text_align=(TextAlign.CENTER, TextAlign.CENTER),
-            )
-            atom_area = sum(f.area for f in text_compound.faces())
+            with span("resolve.leaf_area.make_text"):
+                text_compound = Compound.make_text(
+                    txt=atom.text,
+                    font_size=config.font_size * atom.scale,
+                    font=font_name,
+                    font_path=config.font_path,
+                    font_style=font_style,
+                    text_align=(TextAlign.CENTER, TextAlign.CENTER),
+                )
+            if is_enabled():
+                text_faces = list(text_compound.faces())
+                count("resolve.leaf_area.text_faces", len(text_faces))
+                atom_area = sum(f.area for f in text_faces)
+            else:
+                atom_area = sum(f.area for f in text_compound.faces())
             if atom.neg:
                 negative_area += atom_area
             else:
@@ -218,5 +227,7 @@ def _resolve_node(
 
 def resolve(mobile: Mobile) -> ResolvedTree:
     """Resolve a Mobile into a fully computed ResolvedTree."""
-    root = _link_levels(mobile)
-    return _resolve_node(root, mobile.config, cumulative_scale=1.0)
+    with span("resolve.link_levels"):
+        root = _link_levels(mobile)
+    with span("resolve.resolve_node"):
+        return _resolve_node(root, mobile.config, cumulative_scale=1.0)

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 
 from mbl import Mobile, MobileConfig
+from mbl.perf import emit_report, set_enabled
 
 
 def _default_output_path(word: str) -> Path:
@@ -50,11 +52,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.8,
         help="Multiplier for glyph cutout size relative to leaf",
     )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Print timing/counter profile for generation stages",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.profile:
+        set_enabled(True)
 
     config = MobileConfig(
         font_path=args.font_path,
@@ -73,7 +82,10 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     output = Path(args.output) if args.output else _default_output_path(args.word)
-    out_path = mobile.to_file(output)
+    try:
+        out_path = mobile.to_file(output)
+    finally:
+        emit_report(sys.stderr)
     print(f"Generated {out_path}")
     return 0
 

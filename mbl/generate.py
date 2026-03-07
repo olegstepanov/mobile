@@ -32,6 +32,7 @@ from build123d import (
 from mbl.resolve import ResolvedBranch, ResolvedLeaf, ResolvedTree
 from mbl.dsl import Svg, Txt
 from mbl.arc_math import arc_y_at_x
+from mbl.perf import count, span
 
 if TYPE_CHECKING:
     from mbl.config import MobileConfig
@@ -171,31 +172,37 @@ def _make_leaf_parts(
 
     for atom in leaf.space.layers:
         if isinstance(atom, Svg):
-            shapes = import_svg(atom.path)
+            with span("generate.leaf.import_svg"):
+                shapes = import_svg(atom.path)
             faces = [s for s in shapes if isinstance(s, Face)]
+            count("generate.leaf.svg_faces", len(faces))
             for face in faces:
                 face_scaled = face.scale(xy_scale) if xy_scale != 1.0 else face
                 if atom.neg:
-                    cutter = extrude(face_scaled, amount=thickness * 1.5)
+                    with span("generate.leaf.extrude_svg_neg"):
+                        cutter = extrude(face_scaled, amount=thickness * 1.5)
                     neg_cutters.append(cutter)
                     neg_cutter_is_text.append(False)
                 else:
-                    solid = extrude(face_scaled, amount=thickness)
+                    with span("generate.leaf.extrude_svg_pos"):
+                        solid = extrude(face_scaled, amount=thickness)
                     if pos_body is None:
                         pos_body = solid
                     else:
-                        pos_body = _fuse(pos_body, solid)
+                        with span("generate.leaf.fuse_svg_pos"):
+                            pos_body = _fuse(pos_body, solid)
 
         elif isinstance(atom, Txt):
             font_name, font_style = _text_font_params(config)
-            text_compound = Compound.make_text(
-                txt=atom.text,
-                font_size=config.font_size * atom.scale,
-                font=font_name,
-                font_path=config.font_path,
-                font_style=font_style,
-                text_align=(TextAlign.CENTER, TextAlign.CENTER),
-            )
+            with span("generate.leaf.make_text"):
+                text_compound = Compound.make_text(
+                    txt=atom.text,
+                    font_size=config.font_size * atom.scale,
+                    font=font_name,
+                    font_path=config.font_path,
+                    font_style=font_style,
+                    text_align=(TextAlign.CENTER, TextAlign.CENTER),
+                )
             # TextAlign.CENTER centres on typographic metrics (ascender/
             # descender), not on the visual bounding box of the glyphs.
             # Compute the visual BB centre and pre-shift each cutter so
@@ -207,17 +214,20 @@ def _make_leaf_parts(
             for face in text_compound.faces():
                 face_scaled = face.scale(glyph_scale) if glyph_scale != 1.0 else face
                 if atom.neg:
-                    cutter = extrude(face_scaled, amount=thickness * 1.5)
+                    with span("generate.leaf.extrude_text_neg"):
+                        cutter = extrude(face_scaled, amount=thickness * 1.5)
                     cutter = Pos(-txt_cx, -txt_cy, 0) * cutter
                     neg_cutters.append(cutter)
                     neg_cutter_is_text.append(True)
                 else:
-                    solid = extrude(face_scaled, amount=thickness)
+                    with span("generate.leaf.extrude_text_pos"):
+                        solid = extrude(face_scaled, amount=thickness)
                     solid = Pos(-txt_cx, -txt_cy, 0) * solid
                     if pos_body is None:
                         pos_body = solid
                     else:
-                        pos_body = _fuse(pos_body, solid)
+                        with span("generate.leaf.fuse_text_pos"):
+                            pos_body = _fuse(pos_body, solid)
 
     if pos_body is None:
         return None, neg_cutters
@@ -361,9 +371,36 @@ def _generate_branch(
     stl_angular_tolerance_override: float | None = None,
 ) -> None:
     """Generate a single fused STL for this branch (arc + direct leaf children)."""
+    count("generate.branch.count")
+    with span("generate.branch.total"):
+        _generate_branch_inner(
+            branch,
+            config,
+            output_dir,
+            path_prefix,
+            depth,
+            skip_holes=skip_holes,
+            stl_tolerance_override=stl_tolerance_override,
+            stl_angular_tolerance_override=stl_angular_tolerance_override,
+        )
+
+
+def _generate_branch_inner(
+    branch: ResolvedBranch,
+    config: MobileConfig,
+    output_dir: Path,
+    path_prefix: str,
+    depth: int,
+    *,
+    skip_holes: bool = False,
+    stl_tolerance_override: float | None = None,
+    stl_angular_tolerance_override: float | None = None,
+) -> None:
+    """Internal branch generator so we can wrap recursion in a profile span."""
 
     # 1. Create the arc bar
-    piece = _make_arc_bar(branch.arc.w, branch.arc.h, branch.pivot_mm, config)
+    with span("generate.make_arc_bar"):
+        piece = _make_arc_bar(branch.arc.w, branch.arc.h, branch.pivot_mm, config)
 
     # 2. Endpoints in local coordinates (origin = pivot)
     left_x = -branch.pivot_mm
@@ -383,14 +420,16 @@ def _generate_branch(
 
     # 3. Build transformed leaf solids/cutters.
     if isinstance(branch.left, ResolvedLeaf):
-        pos_solid, neg_list = _make_leaf_parts(branch.left, config)
+        with span("generate.make_leaf_parts.left"):
+            pos_solid, neg_list = _make_leaf_parts(branch.left, config)
         if pos_solid is not None:
             left_leaf_body = Pos(left_x, left_y, 0) * counter_rot * pos_solid
         for c in neg_list:
             cutters.append(Pos(left_x, left_y, 0) * counter_rot * c)
 
     if isinstance(branch.right, ResolvedLeaf):
-        pos_solid, neg_list = _make_leaf_parts(branch.right, config)
+        with span("generate.make_leaf_parts.right"):
+            pos_solid, neg_list = _make_leaf_parts(branch.right, config)
         if pos_solid is not None:
             right_leaf_body = Pos(right_x, right_y, 0) * counter_rot * pos_solid
         for c in neg_list:
@@ -398,43 +437,49 @@ def _generate_branch(
 
     # 4. Trim arc tips to the final leaf-overlap boundary from each tip.
     if left_leaf_body is not None:
-        piece = _trim_arc_tip_to_leaf(
-            piece,
-            left_leaf_body,
-            side="left",
-            tip_x=left_x,
-            tip_y=left_y,
-            span_mm=branch.arc.w,
-            arc_w=branch.arc.w,
-            arc_h=branch.arc.h,
-            pivot_mm=branch.pivot_mm,
-        )
+        with span("generate.trim_arc_tip.left"):
+            piece = _trim_arc_tip_to_leaf(
+                piece,
+                left_leaf_body,
+                side="left",
+                tip_x=left_x,
+                tip_y=left_y,
+                span_mm=branch.arc.w,
+                arc_w=branch.arc.w,
+                arc_h=branch.arc.h,
+                pivot_mm=branch.pivot_mm,
+            )
     if right_leaf_body is not None:
-        piece = _trim_arc_tip_to_leaf(
-            piece,
-            right_leaf_body,
-            side="right",
-            tip_x=right_x,
-            tip_y=right_y,
-            span_mm=branch.arc.w,
-            arc_w=branch.arc.w,
-            arc_h=branch.arc.h,
-            pivot_mm=branch.pivot_mm,
-        )
+        with span("generate.trim_arc_tip.right"):
+            piece = _trim_arc_tip_to_leaf(
+                piece,
+                right_leaf_body,
+                side="right",
+                tip_x=right_x,
+                tip_y=right_y,
+                span_mm=branch.arc.w,
+                arc_w=branch.arc.w,
+                arc_h=branch.arc.h,
+                pivot_mm=branch.pivot_mm,
+            )
 
     # 5. Fuse positive leaf bodies at endpoints.
     if left_leaf_body is not None:
-        piece = _fuse(piece, left_leaf_body)
+        with span("generate.fuse_leaf.left"):
+            piece = _fuse(piece, left_leaf_body)
     if right_leaf_body is not None:
-        piece = _fuse(piece, right_leaf_body)
+        with span("generate.fuse_leaf.right"):
+            piece = _fuse(piece, right_leaf_body)
 
     # 6. Apply all negative cutouts to the whole fused piece.
     for cutter in cutters:
-        piece = _cut(piece, cutter)
+        with span("generate.cut.cutter"):
+            piece = _cut(piece, cutter)
 
     if not skip_holes:
         # 7. Cut pivot hole (always, vertical)
-        piece = _cut_pivot_hole(piece, branch, config)
+        with span("generate.cut.pivot_hole"):
+            piece = _cut_pivot_hole(piece, branch, config)
 
         # 8. Continuation attachment style at arc endpoints.
         if config.hook_style == "hook":
@@ -451,9 +496,11 @@ def _generate_branch(
                 )
         else:
             if isinstance(branch.left, ResolvedBranch):
-                piece = _cut_endpoint_hole(piece, branch, "left", config)
+                with span("generate.cut.endpoint_hole.left"):
+                    piece = _cut_endpoint_hole(piece, branch, "left", config)
             if isinstance(branch.right, ResolvedBranch):
-                piece = _cut_endpoint_hole(piece, branch, "right", config)
+                with span("generate.cut.endpoint_hole.right"):
+                    piece = _cut_endpoint_hole(piece, branch, "right", config)
 
     # 7. Export
     if not path_prefix:
@@ -464,12 +511,13 @@ def _generate_branch(
     tol = stl_tolerance_override if stl_tolerance_override is not None else config.stl_tolerance
     ang_tol = stl_angular_tolerance_override if stl_angular_tolerance_override is not None else config.stl_angular_tolerance
 
-    export_stl(
-        piece,
-        str(output_dir / f"{part_id}.stl"),
-        tolerance=tol,
-        angular_tolerance=ang_tol,
-    )
+    with span("generate.export_stl"):
+        export_stl(
+            piece,
+            str(output_dir / f"{part_id}.stl"),
+            tolerance=tol,
+            angular_tolerance=ang_tol,
+        )
 
     # 8. Recurse into sub-arc children
     if isinstance(branch.left, ResolvedBranch):

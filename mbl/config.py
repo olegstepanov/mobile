@@ -26,11 +26,11 @@ class MobileConfig:
     # - "blend": partially apply the hint by scaling it (see blend_ratio)
     angle_strategy: str = "blend"  # "equilibrium" | "hint" | "blend"
     blend_ratio: float = 0.7  # weight toward equilibrium (higher => closer to 0°)
-    stl_tolerance: float = 1e-4  # mm, linear deflection for STL mesh
-    stl_angular_tolerance: float = 0.01  # radians (~0.6°), angular deflection
+    stl_tolerance: float = 0.01  # mm, linear deflection for STL mesh
+    stl_angular_tolerance: float = 0.1  # radians (~5.7°), angular deflection
 
     # Pivot solver (COM-based binary search)
     sim_angle_tolerance_deg: float = 0.1
     sim_max_bisect_iterations: int = 20
-    sim_stl_tolerance: float = 1e-4  # match final STL tessellation
-    sim_stl_angular_tolerance: float = 0.01  # radians, match final tessellation
+    sim_stl_tolerance: float = 0.05  # coarser mesh for fast COM estimation
+    sim_stl_angular_tolerance: float = 0.15  # radians, coarser COM mesh angle

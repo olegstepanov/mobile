@@ -23,6 +23,9 @@ uv run mbl "     " --shape shopify
 
 # Scale shape and font (relative to the scaled shape)
 uv run mbl "HELLO" --shape custom-shape.svg --shape-scale 1.5 --text-scale 0.8
+
+# Print a stage timing profile
+uv run mbl "HELLO" --shape custom-shape.svg --profile
 ```
 
 Key flags:

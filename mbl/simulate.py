@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from mbl.arc_math import arc_y_at_x
 from mbl.errors import MobileSimulationError
+from mbl.perf import count, span
 from mbl.resolve import ResolvedBranch, ResolvedLeaf, ResolvedTree
 
 if TYPE_CHECKING:
@@ -27,33 +28,35 @@ if TYPE_CHECKING:
 
 def compute_com(stl_path: str) -> tuple[float, float, float, float]:
     """Compute volume-weighted center of mass from a binary STL file."""
-    with open(stl_path, "rb") as f:
-        f.read(80)  # header
-        (num_tris,) = struct.unpack("<I", f.read(4))
+    with span("simulate.compute_com"):
+        with open(stl_path, "rb") as f:
+            f.read(80)  # header
+            (num_tris,) = struct.unpack("<I", f.read(4))
+            count("simulate.compute_com.triangles", num_tris)
 
-        vol_total = 0.0
-        com_x = 0.0
-        com_y = 0.0
-        com_z = 0.0
+            vol_total = 0.0
+            com_x = 0.0
+            com_y = 0.0
+            com_z = 0.0
 
-        for _ in range(num_tris):
-            data = f.read(50)  # 12 (normal) + 36 (3 vertices) + 2 (attrib)
-            vals = struct.unpack("<12fH", data)
+            for _ in range(num_tris):
+                data = f.read(50)  # 12 (normal) + 36 (3 vertices) + 2 (attrib)
+                vals = struct.unpack("<12fH", data)
 
-            v0 = (vals[3], vals[4], vals[5])
-            v1 = (vals[6], vals[7], vals[8])
-            v2 = (vals[9], vals[10], vals[11])
+                v0 = (vals[3], vals[4], vals[5])
+                v1 = (vals[6], vals[7], vals[8])
+                v2 = (vals[9], vals[10], vals[11])
 
-            vol = (
-                v0[0] * (v1[1] * v2[2] - v1[2] * v2[1])
-                - v0[1] * (v1[0] * v2[2] - v1[2] * v2[0])
-                + v0[2] * (v1[0] * v2[1] - v1[1] * v2[0])
-            ) / 6.0
+                vol = (
+                    v0[0] * (v1[1] * v2[2] - v1[2] * v2[1])
+                    - v0[1] * (v1[0] * v2[2] - v1[2] * v2[0])
+                    + v0[2] * (v1[0] * v2[1] - v1[1] * v2[0])
+                ) / 6.0
 
-            vol_total += vol
-            com_x += vol * (v0[0] + v1[0] + v2[0]) / 4.0
-            com_y += vol * (v0[1] + v1[1] + v2[1]) / 4.0
-            com_z += vol * (v0[2] + v1[2] + v2[2]) / 4.0
+                vol_total += vol
+                com_x += vol * (v0[0] + v1[0] + v2[0]) / 4.0
+                com_y += vol * (v0[1] + v1[1] + v2[1]) / 4.0
+                com_z += vol * (v0[2] + v1[2] + v2[2]) / 4.0
 
     if abs(vol_total) > 1e-10:
         com_x /= vol_total
@@ -216,6 +219,7 @@ def _solve_pivot(
     best_angle = 0.0
 
     for iteration in range(max_iters):
+        count("simulate.solve_pivot.iterations")
         trial = (lo + hi) / 2.0
 
         # Pivot position in STL coordinates
@@ -289,13 +293,15 @@ def simulate_mobile(
     results: dict[str, dict] = {}
 
     for label, branch in branches.items():
+        count("simulate.branch.count")
         stl_name = "arc-0.stl" if label == "0" else f"arc-{label}.stl"
         stl_path = stl_dir / stl_name
         if not stl_path.exists():
             raise MobileSimulationError(f"STL file not found: {stl_path}")
 
         target_angle = _compute_target_angle(branch, config)
-        result = _solve_pivot(branch, stl_path, target_angle, config)
+        with span("simulate.solve_pivot"):
+            result = _solve_pivot(branch, stl_path, target_angle, config)
 
         if not result["converged"]:
             raise MobileSimulationError(
