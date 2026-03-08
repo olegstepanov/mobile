@@ -142,10 +142,12 @@ def _patch_tree(
         pivot_mm = r["pivot_mm"]
         pivot = pivot_mm / node.arc.w
         angle = r["angle"]
+        weight = r.get("subtree_mass", node.weight)
         return replace(
             node,
             left=new_left,
             right=new_right,
+            weight=weight,
             pivot_mm=pivot_mm,
             pivot=pivot,
             angle_eq=angle,
@@ -164,6 +166,9 @@ def _solve_pivot(
     stl_path: Path,
     target_angle: float,
     config: MobileConfig,
+    *,
+    left_point_mass: float = 0.0,
+    right_point_mass: float = 0.0,
 ) -> dict:
     """Find pivot_mm where equilibrium angle matches target, using binary search.
 
@@ -194,13 +199,16 @@ def _solve_pivot(
     left_y = arc_y_at_x(arc_w, arc_h, midpoint, left_x)
     right_y = arc_y_at_x(arc_w, arc_h, midpoint, right_x)
 
-    left_point_mass = branch.left.weight if isinstance(branch.left, ResolvedBranch) else 0.0
-    right_point_mass = branch.right.weight if isinstance(branch.right, ResolvedBranch) else 0.0
-
     # 3. Combined COM
     total_mass = stl_mass + left_point_mass + right_point_mass
     if total_mass < 1e-10:
-        return {"pivot_mm": midpoint, "angle": 0.0, "converged": True, "iterations": 0}
+        return {
+            "pivot_mm": midpoint,
+            "angle": 0.0,
+            "converged": True,
+            "iterations": 0,
+            "subtree_mass": 0.0,
+        }
 
     combined_com_x = (
         stl_mass * com_x + left_point_mass * left_x + right_point_mass * right_x
@@ -239,6 +247,7 @@ def _solve_pivot(
                 "angle": angle,
                 "converged": True,
                 "iterations": iteration + 1,
+                "subtree_mass": total_mass,
             }
 
         # If angle > target (COM too far right of pivot), move pivot right.
@@ -252,6 +261,7 @@ def _solve_pivot(
         "angle": best_angle,
         "converged": False,
         "iterations": max_iters,
+        "subtree_mass": total_mass,
     }
 
 
@@ -292,16 +302,43 @@ def simulate_mobile(
 
     results: dict[str, dict] = {}
 
-    for label, branch in branches.items():
+    # Solve bottom-up so parent branches use fully resolved subtree masses.
+    subtree_masses: dict[str, float] = {}
+
+    def _branch_depth(label: str) -> int:
+        return 0 if label == "0" else len(label)
+
+    for label in sorted(branches, key=_branch_depth, reverse=True):
+        branch = branches[label]
         count("simulate.branch.count")
         stl_name = "arc-0.stl" if label == "0" else f"arc-{label}.stl"
         stl_path = stl_dir / stl_name
         if not stl_path.exists():
             raise MobileSimulationError(f"STL file not found: {stl_path}")
 
+        if label == "0":
+            left_label = "L"
+            right_label = "R"
+        else:
+            left_label = label + "L"
+            right_label = label + "R"
+        left_point_mass = (
+            subtree_masses[left_label] if isinstance(branch.left, ResolvedBranch) else 0.0
+        )
+        right_point_mass = (
+            subtree_masses[right_label] if isinstance(branch.right, ResolvedBranch) else 0.0
+        )
+
         target_angle = _compute_target_angle(branch, config)
         with span("simulate.solve_pivot"):
-            result = _solve_pivot(branch, stl_path, target_angle, config)
+            result = _solve_pivot(
+                branch,
+                stl_path,
+                target_angle,
+                config,
+                left_point_mass=left_point_mass,
+                right_point_mass=right_point_mass,
+            )
 
         if not result["converged"]:
             raise MobileSimulationError(
@@ -311,5 +348,6 @@ def simulate_mobile(
             )
 
         results[label] = result
+        subtree_masses[label] = result["subtree_mass"]
 
     return _patch_tree(tree, "", results)

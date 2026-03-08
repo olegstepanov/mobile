@@ -352,6 +352,7 @@ class Mobile:
 
         cfg = config or MobileConfig()
         count = len(word)
+        level_count = max(1, count - 1)
         rows: list[Cell] = []
         base_leaf = _shape_leaf(shape, shape_scale=shape_scale)
         is_blank = base_leaf is None
@@ -374,31 +375,44 @@ class Mobile:
                 if bundled_font.exists():
                     cfg.font_path = str(bundled_font)
 
-        for idx, ch in enumerate(word):
-            ratio = idx / max(1, count - 1)
+        for idx in range(level_count):
+            ratio = idx / max(1, level_count - 1)
             arc_w = max(28.0, width * (0.68 + (1.0 - ratio) * 0.32))
             arc_h = max(4.0, height * (0.6 + (1.0 - ratio) * 0.4))
             leaf_scale = max(0.62, 1.0 - 0.32 * ratio)
+            right_scale = max(0.55, leaf_scale * 0.8)
+
+            left_ch = word[idx] if count > 1 else word[0]
+            right_ch = (
+                word[idx + 1]
+                if count > 1 and idx == level_count - 1
+                else (word[0] if count == 1 else None)
+            )
 
             if is_blank:
-                left_leaf = text_leaf(ch, text_scale=text_scale) * leaf_scale
+                left_leaf = text_leaf(left_ch, text_scale=text_scale) * leaf_scale
                 right_leaf = (
-                    text_leaf("", text_scale=text_scale) * max(0.55, leaf_scale * 0.8)
-                    if idx == count - 1
+                    text_leaf(right_ch, text_scale=text_scale) * right_scale
+                    if right_ch is not None
                     else None
                 )
             else:
                 assert base_leaf is not None
-                if ch.isspace():
+                if left_ch.isspace():
                     left_leaf = base_leaf * leaf_scale
                 else:
                     left_leaf = (
-                        stencil_cut(ch, base=base_leaf, text_scale=text_scale)
+                        stencil_cut(left_ch, base=base_leaf, text_scale=text_scale)
                         * leaf_scale
                     )
                 right_leaf = (
-                    base_leaf * max(0.55, leaf_scale * 0.8)
-                    if idx == count - 1
+                    (
+                        base_leaf * right_scale
+                        if right_ch.isspace()
+                        else stencil_cut(right_ch, base=base_leaf, text_scale=text_scale)
+                        * right_scale
+                    )
+                    if right_ch is not None
                     else None
                 )
 
