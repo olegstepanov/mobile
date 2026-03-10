@@ -50,14 +50,14 @@ Mobile.from_word("HELLO", shape="blank").to_file("hello-blank.3mf")  # Print let
 ## SDK (custom DSL, mixed shapes)
 
 ```python
-from mbl import Arc, Leaf, Mobile, stencil_cut
+from mbl import Arc, Mobile, Text, Circle, Burst
 
 mobile = Mobile(
     [
         Arc(88, 12)
         @ (
-            stencil_cut("S", base=Leaf.circle(), text_scale=0.7),
-            stencil_cut("U", base=Leaf.burst(), text_scale=0.7),
+            ~Text("S") & Circle(),
+            ~Text("U") & Burst(),
         ),
     ]
 )
@@ -68,20 +68,29 @@ mobile.to_file("sun-mixed-shapes.3mf")
 Two-row variant:
 
 ```python
-from mbl import Arc, Leaf, Mobile, stencil_cut
+from mbl import Arc, Mobile, Text, Circle, Burst, Heart
 
 mobile = Mobile(
     [
-        Arc(88, 12) @ (stencil_cut("S", base=Leaf.circle(), text_scale=0.7), None),
+        Arc(88, 12) @ (~Text("S") & Circle(), None),
         Arc(64, 9)
         @ (
-            stencil_cut("U", base=Leaf.burst(), text_scale=0.7),
-            stencil_cut("N", base=Leaf.heart(), text_scale=0.7),
+            ~Text("U") & Burst(),
+            ~Text("N") & Heart(),
         ),
     ]
 )
 
 mobile.to_file("sun-two-row.3mf")
+```
+
+The `stencil_cut()` helper is still available as an alternative:
+
+```python
+from mbl import Arc, Leaf, Mobile, stencil_cut
+
+mobile = Mobile([Arc(88, 12) @ (stencil_cut("S", base=Leaf.circle()), stencil_cut("U", base=Leaf.burst()))])
+mobile.to_file("sun-mixed-shapes.3mf")
 ```
 
 ## Shape semantics

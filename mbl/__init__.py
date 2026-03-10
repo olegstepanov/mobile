@@ -1,7 +1,12 @@
 """mbl — grid-first DSL for hanging mobile generation."""
 
 from mbl.config import MobileConfig
-from mbl.dsl import Arc, Cell, Leaf, Mobile, Space, Svg, Txt, stencil_cut
+from mbl.dsl import (
+    Arc, Cell, Leaf, Mobile, Space,
+    Vector, Text, Svg, Txt, stencil_cut,
+    Circle, Star, Burst, Heart, Shopify, Peace,
+    Cup, Eclipse, Octopus, Smile, Sun,
+)
 from mbl.errors import (
     MobileArcError,
     MobileEmptyError,
@@ -33,7 +38,12 @@ def simulate_mobile(*args, **kwargs):
 
 __all__ = [
     "Arc",
+    "Burst",
     "Cell",
+    "Circle",
+    "Cup",
+    "Eclipse",
+    "Heart",
     "Leaf",
     "Mobile",
     "MobileArcError",
@@ -44,9 +54,17 @@ __all__ = [
     "MobileShapeError",
     "MobileSimulationError",
     "MobileWeightError",
+    "Octopus",
+    "Peace",
+    "Shopify",
+    "Smile",
     "Space",
+    "Star",
+    "Sun",
     "Svg",
+    "Text",
     "Txt",
+    "Vector",
     "generate",
     "resolve",
     "simulate_mobile",

@@ -30,14 +30,16 @@ from mbl.three_mf import export_3mf_files
 
 
 @dataclass(frozen=True)
-class Svg:
+class Vector:
     path: str
     neg: bool = False
 
-    def __invert__(self) -> Svg:
-        return Svg(self.path, not self.neg)
+    def __invert__(self) -> Vector:
+        return Vector(self.path, not self.neg)
 
-    def __and__(self, other: Atom) -> Space:
+    def __and__(self, other: Atom | Leaf) -> Space:
+        if isinstance(other, Leaf):
+            return Space((self,) + other.space.layers)
         return Space((self, other))
 
     def __mul__(self, scale: float) -> Leaf:
@@ -47,16 +49,21 @@ class Svg:
         return _to_leaf(self) % rotation
 
 
+Svg = Vector
+
+
 @dataclass(frozen=True)
-class Txt:
+class Text:
     text: str
     neg: bool = False
     scale: float = 1.0
 
-    def __invert__(self) -> Txt:
-        return Txt(self.text, not self.neg, self.scale)
+    def __invert__(self) -> Text:
+        return Text(self.text, not self.neg, self.scale)
 
-    def __and__(self, other: Atom) -> Space:
+    def __and__(self, other: Atom | Leaf) -> Space:
+        if isinstance(other, Leaf):
+            return Space((self,) + other.space.layers)
         return Space((self, other))
 
     def __mul__(self, scale: float) -> Leaf:
@@ -66,14 +73,18 @@ class Txt:
         return _to_leaf(self) % rotation
 
 
-Atom = Svg | Txt
+Txt = Text
+
+Atom = Vector | Text
 
 
 @dataclass(frozen=True)
 class Space:
     layers: tuple[Atom, ...]
 
-    def __and__(self, other: Atom) -> Space:
+    def __and__(self, other: Atom | Leaf) -> Space:
+        if isinstance(other, Leaf):
+            return Space(self.layers + other.space.layers)
         return Space(self.layers + (other,))
 
     def __mul__(self, scale: float) -> Leaf:
@@ -95,9 +106,18 @@ class Leaf:
     def __mod__(self, rotation: float) -> Leaf:
         return Leaf(self.space, self.scale, self.rotation + rotation)
 
+    def __and__(self, other: Atom | Leaf | Space) -> Leaf:
+        if isinstance(other, Leaf):
+            combined = Space(self.space.layers + other.space.layers)
+        elif isinstance(other, Space):
+            combined = Space(self.space.layers + other.layers)
+        else:  # Atom
+            combined = Space(self.space.layers + (other,))
+        return Leaf(combined, self.scale, self.rotation)
+
     @staticmethod
     def from_svg(path: str) -> Leaf:
-        return Leaf(Space((Svg(path),)))
+        return Leaf(Space((Vector(path),)))
 
     @staticmethod
     def circle(path: str | None = None) -> Leaf:
@@ -155,7 +175,21 @@ class Leaf:
         return Leaf.from_svg(p)
 
 
-Child = Union[Leaf, Svg, Txt, Space, None]
+# Top-level shape constructors
+def Circle() -> Leaf:  return Leaf.from_svg(str(_asset_path("circle.svg")))
+def Star() -> Leaf:    return Leaf.from_svg(str(_asset_path("star.svg")))
+def Burst() -> Leaf:   return Leaf.from_svg(str(_asset_path("burst.svg")))
+def Heart() -> Leaf:   return Leaf.from_svg(str(_asset_path("heart.svg")))
+def Shopify() -> Leaf: return Leaf.from_svg(str(_asset_path("shopify.svg")))
+def Peace() -> Leaf:   return Leaf.from_svg(str(_asset_path("peace.svg")))
+def Cup() -> Leaf:     return Leaf.from_svg(str(_asset_path("cup.svg")))
+def Eclipse() -> Leaf: return Leaf.from_svg(str(_asset_path("eclipse.svg")))
+def Octopus() -> Leaf: return Leaf.from_svg(str(_asset_path("octopus.svg")))
+def Smile() -> Leaf:   return Leaf.from_svg(str(_asset_path("smile.svg")))
+def Sun() -> Leaf:     return Leaf.from_svg(str(_asset_path("sun.svg")))
+
+
+Child = Union[Leaf, Vector, Text, Space, None]
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +202,14 @@ class Arc:
     w: float
     h: float
     rotation: float = 0.0
+    offset: tuple[float, float] = (0.0, 0.0)
+
+    def __add__(self, xy: tuple[float, float]) -> Arc:
+        return Arc(self.w, self.h, self.rotation,
+                   (self.offset[0] + xy[0], self.offset[1] + xy[1]))
 
     def __mod__(self, degrees: float) -> Arc:
-        return Arc(self.w, self.h, self.rotation + degrees)
+        return Arc(self.w, self.h, self.rotation + degrees, self.offset)
 
     def __matmul__(self, hanging) -> Cell | list[Cell]:
         """Bind arc to one pair or map across a list of pairs.
@@ -237,6 +276,58 @@ BUILTIN_SHAPES = {
     "sun": "sun.svg",
 }
 
+# Emoji / special-character → built-in shape mapping.
+# Keys are base codepoints (without U+FE0F variation selector).
+EMOJI_SHAPE_MAP: dict[str, str] = {
+    # Stars
+    "\u2b50": "star",       # ⭐
+    "\U0001f31f": "star",   # 🌟
+    "\u2734": "star",       # ✴
+    # Hearts
+    "\u2764": "heart",      # ❤ (❤️)
+    "\U0001f49c": "heart",  # 💜
+    "\U0001f499": "heart",  # 💙
+    "\U0001f49a": "heart",  # 💚
+    "\U0001f9e1": "heart",  # 🧡
+    "\U0001f5a4": "heart",  # 🖤
+    "\U0001f90d": "heart",  # 🤍
+    "\U0001f90e": "heart",  # 🤎
+    "\U0001f498": "heart",  # 💘
+    # Sun
+    "\u2600": "sun",        # ☀ (☀️)
+    "\U0001f31e": "sun",    # 🌞
+    # Eclipse / moon
+    "\U0001f319": "eclipse",  # 🌙
+    "\U0001f311": "eclipse",  # 🌑
+    "\U0001f312": "eclipse",  # 🌒
+    "\U0001f318": "eclipse",  # 🌘
+    # Smile
+    "\U0001f60a": "smile",  # 😊
+    "\U0001f642": "smile",  # 🙂
+    "\U0001f600": "smile",  # 😀
+    "\U0001f603": "smile",  # 😃
+    "\U0001f604": "smile",  # 😄
+    # Octopus
+    "\U0001f419": "octopus",  # 🐙
+    # Cup / coffee
+    "\u2615": "cup",        # ☕
+    "\U0001f375": "cup",    # 🍵
+    # Burst / explosion
+    "\U0001f4a5": "burst",  # 💥
+    "\u2733": "burst",      # ✳ (✳️)
+    # Circle
+    "\u26aa": "circle",     # ⚪
+    "\u2b24": "circle",     # ⬤
+    "\u25cf": "circle",     # ●
+    "\U0001f534": "circle", # 🔴
+    "\U0001f535": "circle", # 🔵
+    # Peace
+    "\u262e": "peace",      # ☮ (☮️)
+    # Shopify (shopping-related emoji)
+    "\U0001f6cd": "shopify",  # 🛍 (🛍️)
+    "\U0001f6d2": "shopify",  # 🛒
+}
+
 
 def _can_use_helvetica_neue_bold() -> bool:
     """Return True when text engine can render Helvetica Neue in bold style."""
@@ -284,6 +375,53 @@ def stencil_cut(
 
 def text_leaf(text: str, *, text_scale: float = 1.0) -> Leaf:
     return Leaf(Space((Txt(text, scale=text_scale),)))
+
+
+def _split_graphemes(text: str) -> list[str]:
+    """Split a string into grapheme clusters (handles emoji with variation selectors)."""
+    clusters: list[str] = []
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        i += 1
+        # Consume trailing variation selectors (U+FE0E, U+FE0F) and ZWJ sequences
+        while i < len(text) and text[i] in ("\ufe0e", "\ufe0f"):
+            ch += text[i]
+            i += 1
+        # Handle ZWJ sequences (e.g., family emoji)
+        while i < len(text) and text[i] == "\u200d":
+            ch += text[i]
+            i += 1
+            if i < len(text):
+                ch += text[i]
+                i += 1
+                while i < len(text) and text[i] in ("\ufe0e", "\ufe0f"):
+                    ch += text[i]
+                    i += 1
+        # Handle surrogate pairs — Python str already handles this, but
+        # catch combining marks (skin tones, keycaps, etc.)
+        while i < len(text) and (0x1F3FB <= ord(text[i]) <= 0x1F3FF  # skin tones
+                                 or text[i] == "\u20e3"):             # keycap
+            ch += text[i]
+            i += 1
+        clusters.append(ch)
+    return clusters
+
+
+def _emoji_leaf(
+    grapheme: str,
+    *,
+    shape_scale: float,
+    default_diameter_mm: float = DEFAULT_SHAPE_DIAMETER_MM,
+) -> Leaf | None:
+    """Return a shape Leaf if the grapheme maps to a built-in emoji shape, else None."""
+    # Strip variation selectors to get the base codepoint(s)
+    base = grapheme.replace("\ufe0e", "").replace("\ufe0f", "")
+    if base not in EMOJI_SHAPE_MAP:
+        return None
+    shape_name = EMOJI_SHAPE_MAP[base]
+    return _shape_leaf(shape_name, shape_scale=shape_scale,
+                       default_diameter_mm=default_diameter_mm)
 
 
 def _shape_path(shape: str) -> Path | None:
@@ -381,7 +519,8 @@ class Mobile:
             raise ValueError("text_scale must be > 0")
 
         cfg = config or MobileConfig()
-        count = len(word)
+        chars = _split_graphemes(word)
+        count = len(chars)
         level_count = max(1, count - 1)
         rows: list[Cell] = []
         base_leaf = _shape_leaf(shape, shape_scale=shape_scale)
@@ -405,6 +544,24 @@ class Mobile:
                 if bundled_font.exists():
                     cfg.font_path = str(bundled_font)
 
+        def _make_char_leaf(
+            ch: str, scale: float
+        ) -> Leaf | None:
+            """Build a leaf for a single grapheme cluster, checking emoji first."""
+            if ch is None:
+                return None
+            # Check if the character maps to a built-in shape
+            emoji = _emoji_leaf(ch, shape_scale=shape_scale)
+            if emoji is not None:
+                return emoji * scale
+            # Regular character path
+            if is_blank:
+                return text_leaf(ch, text_scale=text_scale) * scale
+            assert base_leaf is not None
+            if ch.isspace():
+                return base_leaf * scale
+            return stencil_cut(ch, base=base_leaf, text_scale=text_scale) * scale
+
         for idx in range(level_count):
             ratio = idx / max(1, level_count - 1)
             arc_w = max(28.0, width * (0.68 + (1.0 - ratio) * 0.32))
@@ -412,39 +569,15 @@ class Mobile:
             leaf_scale = max(0.62, 1.0 - 0.32 * ratio)
             right_scale = max(0.55, leaf_scale * 0.8)
 
-            left_ch = word[idx] if count > 1 else word[0]
+            left_ch = chars[idx] if count > 1 else chars[0]
             right_ch = (
-                word[idx + 1]
+                chars[idx + 1]
                 if count > 1 and idx == level_count - 1
-                else (word[0] if count == 1 else None)
+                else (chars[0] if count == 1 else None)
             )
 
-            if is_blank:
-                left_leaf = text_leaf(left_ch, text_scale=text_scale) * leaf_scale
-                right_leaf = (
-                    text_leaf(right_ch, text_scale=text_scale) * right_scale
-                    if right_ch is not None
-                    else None
-                )
-            else:
-                assert base_leaf is not None
-                if left_ch.isspace():
-                    left_leaf = base_leaf * leaf_scale
-                else:
-                    left_leaf = (
-                        stencil_cut(left_ch, base=base_leaf, text_scale=text_scale)
-                        * leaf_scale
-                    )
-                right_leaf = (
-                    (
-                        base_leaf * right_scale
-                        if right_ch.isspace()
-                        else stencil_cut(right_ch, base=base_leaf, text_scale=text_scale)
-                        * right_scale
-                    )
-                    if right_ch is not None
-                    else None
-                )
+            left_leaf = _make_char_leaf(left_ch, leaf_scale)
+            right_leaf = _make_char_leaf(right_ch, right_scale)
 
             rows.append(Arc(arc_w, arc_h) @ (left_leaf, right_leaf))
 

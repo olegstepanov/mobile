@@ -30,7 +30,7 @@ from build123d import (
 )
 
 from mbl.resolve import ResolvedBranch, ResolvedLeaf, ResolvedTree
-from mbl.dsl import Svg, Txt
+from mbl.dsl import Vector, Text, Svg, Txt
 from mbl.arc_math import arc_y_at_x
 from mbl.perf import count, span
 
@@ -501,6 +501,10 @@ def _generate_branch_inner(
             if isinstance(branch.right, ResolvedBranch):
                 with span("generate.cut.endpoint_hole.right"):
                     piece = _cut_endpoint_hole(piece, branch, "right", config)
+
+    # 7a. Apply arc offset translation if non-zero.
+    if branch.arc.offset != (0.0, 0.0):
+        piece = Pos(branch.arc.offset[0], branch.arc.offset[1], 0) * piece
 
     # 7. Export
     if not path_prefix:
