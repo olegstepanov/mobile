@@ -15,6 +15,15 @@ Shape modes:
 # Built-in shape, normalized to 25 mm diameter at shape-scale 1.0
 uv run mbl "LOVE" --shape heart
 
+# Seven hearts for mom
+uv run mbl "❤️❤️❤️❤️❤️❤️❤️"
+
+# MOM stencil-cut into hearts
+uv run mbl "MOM" --shape heart
+
+# Emoji are mapped to built-in shapes automatically
+uv run mbl "⭐❤️😊🐙☀️"
+
 # Custom SVG, normalized to 25 mm diameter at shape-scale 1.0
 uv run mbl "HELLO" --shape custom-shape.svg
 
@@ -43,6 +52,9 @@ from mbl import Mobile
 
 Mobile.from_word("HELLO").to_file("hello.3mf")
 Mobile.from_word("HELLO", shape="burst").to_file("hello-burst.3mf")
+Mobile.from_word("MOM", shape="heart").to_file("mom.3mf")
+Mobile.from_word("❤️❤️❤️❤️❤️❤️❤️").to_file("mom-7-hearts.3mf")
+Mobile.from_word("⭐❤️😊🐙☀️").to_file("emoji-mix.3mf")
 Mobile.from_word("HELLO", shape="custom-shape.svg", shape_scale=1.5, text_scale=0.8).to_file("hello-scaled.3mf")
 Mobile.from_word("HELLO", shape="blank").to_file("hello-blank.3mf")  # Print letters as solids in Helvetica
 ```
