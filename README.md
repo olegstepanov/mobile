@@ -52,16 +52,16 @@ Key flags:
 from pathlib import Path
 from mbl import Arc, Leaf, to_3mf
 
-STATES = Path("mbl") / "assets" / "states"
+STATES = Path(__file__).parent / "states"
 
 def leaf(name: str, scale: float = 0.17) -> Leaf:
-    return Leaf.from_svg(str(STATES / f"{name}.svg")) * scale
+    return Leaf.from_svg(STATES / f"{name}.svg") * scale
 
 levels = [
                                [             Arc(100, 22) @ leaf("ME")],
                    [          Arc(90, 18)         ],
     [leaf("VT") @ Arc(45, 12) @ leaf("NH"),      Arc(50, 10) @ leaf("MA")],
-                                 leaf("CT") @ Arc(35, 10) @ leaf("RI"),
+                                 [leaf("CT") @ Arc(35, 10) @ leaf("RI")],
 ]
 
 # pass config=MobileConfig(...) to override generation parameters
