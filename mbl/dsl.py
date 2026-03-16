@@ -2,7 +2,7 @@
 
 Canonical structure: a row matrix.
 - each row = one mobile level
-- each cell = Arc @ (left, right)
+- each cell = Leaf @ Arc @ Leaf  (both leaves optional)
 - a missing slot (None) is a continuation hole for the next row
 """
 
@@ -41,6 +41,9 @@ class Vector:
             return Space((self,) + other.space.layers)
         return Space((self, other))
 
+    def __matmul__(self, other):
+        return _to_leaf(self).__matmul__(other)
+
     def __mul__(self, scale: float) -> Leaf:
         return _to_leaf(self) * scale
 
@@ -65,6 +68,9 @@ class Text:
             return Space((self,) + other.space.layers)
         return Space((self, other))
 
+    def __matmul__(self, other):
+        return _to_leaf(self).__matmul__(other)
+
     def __mul__(self, scale: float) -> Leaf:
         return _to_leaf(self) * scale
 
@@ -85,6 +91,9 @@ class Space:
         if isinstance(other, Leaf):
             return Space(self.layers + other.space.layers)
         return Space(self.layers + (other,))
+
+    def __matmul__(self, other):
+        return _to_leaf(self).__matmul__(other)
 
     def __mul__(self, scale: float) -> Leaf:
         return _to_leaf(self) * scale
@@ -113,6 +122,11 @@ class Leaf:
         else:  # Atom
             combined = Space(self.space.layers + (other,))
         return Leaf(combined, self.scale, self.rotation)
+
+    def __matmul__(self, other: Arc) -> Cell:
+        if not isinstance(other, Arc):
+            return NotImplemented
+        return Cell(other, self, None)
 
     @staticmethod
     def from_svg(path: str) -> Leaf:
@@ -210,35 +224,12 @@ class Arc:
     def __mod__(self, degrees: float) -> Arc:
         return Arc(self.w, self.h, self.rotation + degrees, self.offset)
 
-    def __rmatmul__(self, hanging) -> Cell | list[Cell]:
-        """Bind a hanging pair (or list of pairs) to this arc.
-
-        Supported:
-        - (left, right) @ Arc(...) -> Cell
-        - (left,)       @ Arc(...) -> Cell (right hole)
-        - [(a, b), (c,)] @ Arc(...) -> list[Cell]
-        """
-        if isinstance(hanging, (tuple, list)) and hanging:
-            if self._is_pair(hanging):
-                return self._bind_pair(hanging)
-            if all(self._is_pair(item) for item in hanging):
-                return [self._bind_pair(item) for item in hanging]
-        raise TypeError(
-            "Arc bind expects (left[, right]) or a list of such tuples"
-        )
-
-    @staticmethod
-    def _is_pair(value) -> bool:
-        if not isinstance(value, (tuple, list)):
-            return False
-        if len(value) not in (1, 2):
-            return False
-        return not any(isinstance(v, (tuple, list)) for v in value)
-
-    def _bind_pair(self, pair: Sequence[Child]) -> Cell:
-        left = pair[0]
-        right = pair[1] if len(pair) == 2 else None
-        return Cell(self, _to_leaf(left), _to_leaf(right))
+    def __matmul__(self, other) -> Cell:
+        """Arc @ Leaf → Cell(arc, left=None, right=Leaf)."""
+        leaf = _to_leaf(other)
+        if leaf is None:
+            return NotImplemented
+        return Cell(self, None, leaf)
 
 
 @dataclass(frozen=True)
@@ -246,6 +237,15 @@ class Cell:
     arc: Arc
     left: Leaf | None
     right: Leaf | None
+
+    def __matmul__(self, other) -> Cell:
+        """Cell @ Leaf → fill the right slot."""
+        leaf = _to_leaf(other)
+        if leaf is None:
+            return NotImplemented
+        if self.right is not None:
+            raise TypeError("Right leaf is already bound")
+        return Cell(self.arc, self.left, leaf)
 
     def __mod__(self, degrees: float) -> Cell:
         return Cell(self.arc % degrees, self.left, self.right)
@@ -493,7 +493,7 @@ def _shape_leaf(
     return Leaf.from_svg(str(path)) * (normalization * shape_scale)
 
 
-RowLike = Cell | Sequence[Cell]
+RowLike = Cell | Arc | Sequence[Cell | Arc]
 
 
 # ---------------------------------------------------------------------------
@@ -521,14 +521,19 @@ class Mobile:
     def rows(self) -> list[list[Cell]]:
         return self.grid
 
+    @staticmethod
+    def _to_cell(item: Cell | Arc) -> Cell:
+        if isinstance(item, Arc):
+            return Cell(item, None, None)
+        if isinstance(item, Cell):
+            return item
+        raise TypeError(f"Expected Cell or Arc, got {type(item).__name__}")
+
     def _coerce_row(self, row: RowLike) -> list[Cell]:
-        if isinstance(row, Cell):
-            return [row]
+        if isinstance(row, (Cell, Arc)):
+            return [self._to_cell(row)]
         if isinstance(row, Sequence):
-            if not all(isinstance(c, Cell) for c in row):
-                bad = [type(c).__name__ for c in row if not isinstance(c, Cell)][0]
-                raise TypeError(f"Row must contain Cell items, got {bad}")
-            return list(row)
+            return [self._to_cell(c) for c in row]
         raise TypeError(f"Unsupported row type: {type(row).__name__}")
 
     def _validate(self) -> None:
@@ -676,7 +681,15 @@ def from_word(
         if rtl:
             left_leaf, right_leaf = right_leaf, left_leaf
 
-        rows.append((left_leaf, right_leaf) @ Arc(arc_w, arc_h))
+        arc = Arc(arc_w, arc_h)
+        if left_leaf and right_leaf:
+            rows.append(left_leaf @ arc @ right_leaf)
+        elif left_leaf:
+            rows.append(left_leaf @ arc)
+        elif right_leaf:
+            rows.append(arc @ right_leaf)
+        else:
+            rows.append(Cell(arc, None, None))
 
     return rows
 

@@ -57,10 +57,10 @@ def leaf(name: str, scale: float = 0.17) -> Leaf:
     return Leaf.from_svg(str(Path("mbl") / "assets" / "states" / f"{name}.svg")) * scale
 
 levels = [
-        (None, leaf("ME")) @ Arc(100, 22),
-        (None, None) @ Arc(90, 18),
-        [(leaf("VT"), leaf("NH")) @ Arc(45, 12), (None, leaf("MA")) @ Arc(50, 10)],
-        (leaf("CT"), leaf("RI")) @ Arc(35, 10),
+        Arc(100, 22) @ leaf("ME"),
+        Arc(90, 18),
+        [leaf("VT") @ Arc(45, 12) @ leaf("NH"), Arc(50, 10) @ leaf("MA")],
+        leaf("CT") @ Arc(35, 10) @ leaf("RI"),
 ]
 
 # pass config=MobileConfig(...) to override generation parameters

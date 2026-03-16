@@ -52,14 +52,43 @@ def test_arc_offset_accumulates():
     assert a.offset == (6, 5)
 
 
-def test_new_syntax_builds_cell():
-    """(~Text('S') & Circle(), ~Text('U') & Burst()) @ Arc(...) builds a Cell."""
-    cell = (~Text("S") & Circle(), ~Text("U") & Burst()) @ Arc(88, 12)
+def test_leaf_at_arc_at_leaf_builds_cell():
+    """Leaf @ Arc @ Leaf builds a Cell with both sides bound."""
+    left = ~Text("S") & Circle()
+    right = ~Text("U") & Burst()
+    cell = left @ Arc(88, 12) @ right
     assert isinstance(cell, Cell)
     assert cell.left is not None
     assert cell.right is not None
     assert len(cell.left.space.layers) == 2
     assert len(cell.right.space.layers) == 2
+
+
+def test_arc_at_leaf_builds_cell():
+    """Arc @ Leaf builds a Cell with only right side bound."""
+    cell = Arc(80, 12) @ Circle()
+    assert isinstance(cell, Cell)
+    assert cell.left is None
+    assert cell.right is not None
+
+
+def test_leaf_at_arc_builds_cell():
+    """Leaf @ Arc builds a Cell with only left side bound."""
+    cell = Circle() @ Arc(80, 12)
+    assert isinstance(cell, Cell)
+    assert cell.left is not None
+    assert cell.right is None
+
+
+def test_bare_arc_in_levels():
+    """Bare Arc is accepted as a row (both sides None)."""
+    from mbl.dsl import Mobile
+    mobile = Mobile([
+        Arc(80, 12),
+        [Circle() @ Arc(40, 8) @ Star(), Burst() @ Arc(40, 8) @ Heart()],
+    ])
+    assert mobile.grid[0][0].left is None
+    assert mobile.grid[0][0].right is None
 
 
 def test_backward_compat_aliases():
