@@ -52,7 +52,7 @@ Key flags:
 from pathlib import Path
 from mbl import Arc, Leaf, to_3mf
 
-STATES = Path(__file__).parent / "states"
+STATES = Path(__file__).parent / "shapes" / "new_england"
 
 def leaf(name: str, scale: float = 0.17) -> Leaf:
     return Leaf.from_svg(STATES / f"{name}.svg") * scale
