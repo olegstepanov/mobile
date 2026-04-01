@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mbl"
 version = "0.2.0"
-requires-python = ">= 3.13"
+requires-python = "== 3.13.*"
 dependencies = [
     "build123d",
 ]
